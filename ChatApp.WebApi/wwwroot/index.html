@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STALK</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #d1d7db; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        .app-container { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .chat-app { width: 95vw; height: 90vh; background: #fff; display: flex; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden; position: relative; }
+
+        /* Login Overlay */
+        #loginOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; }
+
+        /* Sidebar */
+        .sidebar { width: 350px; background: #fff; border-right: 1px solid #e1e4ea; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid #e1e4ea; display: flex; align-items: center; gap: 10px; background: #eaedf0; }
+        .search-bar { background: #eaedf0; border: none; border-radius: 20px; padding: 8px 15px; width: 100%; }
+        .chat-list { flex: 1; overflow-y: auto; }
+        .chat-item { display: flex; align-items: center; padding: 15px; cursor: pointer; border-bottom: 1px solid #f3f5f6; }
+        .chat-item:hover, .chat-item.active { background: #e5efff; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; background: #0068ff; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; margin-right: 15px; }
+        .chat-item-info h6 { margin: 0 0 5px 0; font-size: 1rem; color: #081c36; }
+        .chat-item-info p { margin: 0; font-size: 0.85rem; color: #7a869a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+
+        /* Chat Area */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #e2e8f0; }
+        .chat-header { height: 68px; background: #fff; border-bottom: 1px solid #e1e4ea; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
+        .header-info { display: flex; align-items: center; gap: 15px; }
+        .header-info h5 { margin: 0; color: #081c36; font-size: 1.1rem; }
+        .header-info span { font-size: 0.8rem; color: #7a869a; }
+        .header-actions i { font-size: 1.2rem; color: #7a869a; margin-left: 20px; cursor: pointer; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        .msg-row { display: flex; width: 100%; }
+        .msg-row.me { justify-content: flex-end; }
+        .msg-row.other { justify-content: flex-start; }
+        .bubble { max-width: 65%; padding: 12px 16px; border-radius: 8px; font-size: 0.95rem; line-height: 1.4; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg-row.me .bubble { background: #e5efff; color: #081c36; border-top-right-radius: 0; }
+        .msg-row.other .bubble { background: #fff; color: #081c36; border-top-left-radius: 0; }
+        .msg-time { display: block; font-size: 0.7rem; color: #7a869a; margin-top: 5px; text-align: right; }
+        
+        .attachment-img { max-width: 200px; border-radius: 4px; margin-top: 5px; cursor: pointer; }
+
+        .chat-input-area { background: #fff; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-top: 1px solid #e1e4ea; }
+        .chat-input-area i { font-size: 1.4rem; color: #7a869a; cursor: pointer; }
+        .chat-input { flex: 1; border: none; outline: none; padding: 10px; font-size: 1rem; }
+        .btn-send { color: #0068ff; font-size: 1.5rem; cursor: pointer; border: none; background: transparent; }
+
+        /* CALL OVERLAY */
+        #callOverlay { display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 30, 30, 0.95); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .call-icon { font-size: 4rem; margin-bottom: 20px; z-index: 10; animation: pulse 1.5s infinite; }
+        .call-info-box { z-index: 10; display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.5); padding: 30px; border-radius: 12px; }
+        @keyframes pulse { 0% { transform: scale(0.95); } 50% { transform: scale(1.1); } 100% { transform: scale(0.95); } }
+
+        /* WEBRTC VIDEOS */
+        #remoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; }
+        #localVideo { position: absolute; bottom: 30px; right: 30px; width: 180px; height: 240px; object-fit: cover; border-radius: 12px; border: 3px solid #fff; z-index: 5; display: none; background: #000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="chat-app">
+        
+        <!-- CALL OVERLAY -->
+        <div id="callOverlay">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+
+            <div class="call-info-box">
+                <div class="call-icon" id="callIcon"><i class="fa-solid fa-phone"></i></div>
+                <h3 id="callStatusText">Đang gọi...</h3>
+                <p id="callDetailsText">AE Chill</p>
+                <div style="margin-top: 30px; display: flex; gap: 20px;" id="callActionButtons"></div>
+            </div>
+        </div>
+
+        <!-- LOGIN OVERLAY -->
+        <div id="loginOverlay">
+            <div class="login-box text-center">
+                <h2 class="text-primary mb-4" style="color: #0068ff !important; font-weight: bold;">STALK</h2>
+                <p class="text-muted mb-4">Đăng nhập tài khoản</p>
+                <input type="text" id="senderId" class="form-control mb-4" placeholder="Nhập ID của bạn (Thiên/AE Chill)">
+                <button id="btnConnect" class="btn btn-primary w-100" style="background: #0068ff; border: none; padding: 10px;">ĐĂNG NHẬP</button>
+                <div id="loginError" class="text-danger mt-3 small" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <input type="text" class="search-bar" placeholder="Tìm kiếm...">
+            </div>
+            <div class="chat-list" id="chatList">
+                <!-- Data loaded via API -->
+            </div>
+        </div>
+
+        <!-- MAIN CHAT AREA -->
+        <div class="chat-area" style="visibility: hidden;" id="mainChatArea">
+            <div class="chat-header">
+                <div class="header-info">
+                    <div class="avatar" style="width: 42px; height: 42px; font-size: 1rem;"><i class="fa-solid fa-user-group"></i></div>
+                    <div>
+                        <h5 id="currentChatTitle">...</h5>
+                        <span><i class="fa-solid fa-circle" style="color: #00d856; font-size: 8px;"></i> Đang hoạt động</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <i class="fa-solid fa-phone" id="btnCallAudio" title="Gọi Audio"></i>
+                    <i class="fa-solid fa-video" id="btnCallVideo" title="Gọi Video"></i>
+                </div>
+            </div>
+            <div class="chat-messages" id="messagesList"></div>
+            <div class="chat-input-area">
+                <input type="file" id="fileInput" style="display:none">
+                <i class="fa-solid fa-paperclip" id="btnAttach" title="Đính kèm file"></i>
+                <input type="text" id="txtMessage" class="chat-input" placeholder="Nhập tin nhắn...">
+                <button id="btnSend" class="btn-send"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+<script>
+    const connection = new signalR.HubConnectionBuilder().withUrl("/chathub").build();
+    let currentUserId = "";
+    let currentConversationId = "";
+    
+    // Call state variables
+    let currentCallId = null;
+    let localStream = null;
+    let peerConnection = null;
+    let callTimerInterval = null;
+    let callSeconds = 0;
+    let currentCallType = 0; // 0: Audio, 1: Video
+    let pendingOffer = null;
+    let pendingCandidates = [];
+
+    const rtcConfig = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    };
+
+    const loginOverlay = document.getElementById("loginOverlay");
+    const senderIdInput = document.getElementById("senderId");
+    const loginError = document.getElementById("loginError");
+    const chatList = document.getElementById("chatList");
+    const messagesList = document.getElementById("messagesList");
+    const currentChatTitle = document.getElementById("currentChatTitle");
+    const mainChatArea = document.getElementById("mainChatArea");
+    const txtMessage = document.getElementById("txtMessage");
+    const btnSend = document.getElementById("btnSend");
+    const fileInput = document.getElementById("fileInput");
+    const btnAttach = document.getElementById("btnAttach");
+
+    // Call UI elements
+    const callOverlay = document.getElementById("callOverlay");
+    const callStatusText = document.getElementById("callStatusText");
+    const callDetailsText = document.getElementById("callDetailsText");
+    const callActionButtons = document.getElementById("callActionButtons");
+    const callIcon = document.getElementById("callIcon");
+    const localVideo = document.getElementById("localVideo");
+    const remoteVideo = document.getElementById("remoteVideo");
+
+    function formatTime(date) { return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    function formatDuration(sec) { 
+        const m = Math.floor(sec / 60).toString().padStart(2, '0');
+        const s = (sec % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    /* ==============================
+       MESSAGING & SIGNALR LOGIC
+       ============================== */
+    connection.on("ReceiveNewMessage", function (messageDto) {
+        if (messageDto.conversationId !== currentConversationId) return;
+        const isMe = messageDto.senderId === currentUserId;
+        appendMessage(messageDto.content, messageDto.createdAt, isMe, messageDto.attachmentUrl, messageDto.attachmentName);
+        loadInbox();
+    });
+
+    function appendMessage(content, time, isMe, attachmentUrl, attachmentName) {
+        const rowDiv = document.createElement("div");
+        rowDiv.classList.add("msg-row", isMe ? "me" : "other");
+        
+        let mediaHtml = '';
+        if (attachmentUrl) {
+            const isImage = attachmentUrl.match(/\.(jpeg|jpg|gif|png)$/) != null;
+            if (isImage) {
+                mediaHtml = `<img src="${attachmentUrl}" class="attachment-img" alt="image" onclick="window.open('${attachmentUrl}','_blank')"><br/>`;
+            } else {
+                mediaHtml = `<a href="${attachmentUrl}" target="_blank" style="word-break: break-all;">📎 ${attachmentName || 'Tải file'}</a><br/>`;
+            }
+        }
+
+        rowDiv.innerHTML = `<div class="bubble">${mediaHtml}${content} <span class="msg-time">${formatTime(time)}</span></div>`;
+        messagesList.appendChild(rowDiv);
+        messagesList.scrollTop = messagesList.scrollHeight;
+    }
+
+    document.getElementById("btnConnect").addEventListener("click", async () => {
+        const userId = senderIdInput.value.trim();
+        if (!userId) { loginError.innerText = "Vui lòng nhập User ID!"; loginError.style.display = "block"; return; }
+
+        currentUserId = userId;
+        try {
+            await connection.start();
+            loadInbox();
+            loginOverlay.style.opacity = "0";
+            setTimeout(() => loginOverlay.style.display = "none", 300);
+        } catch (err) {
+            loginError.innerText = "Lỗi kết nối SignalR: " + err; loginError.style.display = "block";
+        }
+    });
+
+    async function loadInbox() {
+        const res = await fetch(`/api/conversations/inbox/${currentUserId}`);
+        const data = await res.json();
+        
+        chatList.innerHTML = "";
+        data.forEach(chat => {
+            const div = document.createElement("div");
+            div.className = `chat-item ${chat.conversationId === currentConversationId ? 'active' : ''}`;
+            div.innerHTML = `
+                <div class="avatar"><i class="fa-solid ${chat.type === 1 ? 'fa-user-group' : 'fa-user'}"></i></div>
+                <div class="chat-item-info">
+                    <h6>${chat.title || 'Chat'}</h6>
+                    <p>${chat.lastMessage}</p>
+                </div>`;
+            div.onclick = () => selectChat(chat.conversationId, chat.title);
+            chatList.appendChild(div);
+        });
+    }
+
+    async function selectChat(convId, title) {
+        currentConversationId = convId;
+        currentChatTitle.innerText = title || "Trò chuyện";
+        mainChatArea.style.visibility = "visible";
+        messagesList.innerHTML = "";
+
+        await connection.invoke("JoinChatRoom", convId);
+
+        const res = await fetch(`/api/messages/${convId}`);
+        const messages = await res.json();
+        
+        messages.forEach(m => appendMessage(m.content, m.createdAt, m.senderId === currentUserId, m.attachmentUrl, m.attachmentName));
+        loadInbox();
+    }
+
+    btnAttach.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async function() {
+        if (!this.files.length) return;
+        const file = this.files[0];
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        try {
+            const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
+            const data = await res.json();
+            
+            const command = { 
+                conversationId: currentConversationId, senderId: currentUserId, messageType: 1, 
+                content: "Đã gửi một file đính kèm", attachmentUrl: data.url, attachmentName: data.originalName
+            };
+            
+            await connection.invoke("SendMessage", command);
+            this.value = ""; 
+        } catch (err) { alert("Lỗi upload file: " + err); }
+    });
+
+    btnSend.addEventListener("click", async () => {
+        const content = txtMessage.value.trim();
+        if (!content || !currentConversationId) return;
+        const command = { conversationId: currentConversationId, senderId: currentUserId, messageType: 0, content: content };
+        try { await connection.invoke("SendMessage", command); txtMessage.value = ""; } catch (err) { alert(err); }
+    });
+    txtMessage.addEventListener("keypress", (e) => { if (e.key === 'Enter') btnSend.click(); });
+
+
+    /* ==============================
+       CALL SIGNALING & WEBRTC LOGIC
+       ============================== */
+    function showCallOverlay(status, details, iconClass, buttonsHtml) {
+        callStatusText.innerText = status;
+        callDetailsText.innerText = details;
+        callIcon.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+        callActionButtons.innerHTML = buttonsHtml;
+        callOverlay.style.display = "flex";
+        
+        // Cập nhật background nếu là call
+        if(status.includes("đang diễn ra")) {
+            callIcon.style.animation = "none";
+            document.querySelector(".call-info-box").style.background = "rgba(0,0,0,0.5)";
+        } else {
+            callIcon.style.animation = "pulse 1.5s infinite";
+            document.querySelector(".call-info-box").style.background = "none";
+        }
+    }
+
+    function cleanupCall() {
+        callOverlay.style.display = "none";
+        currentCallId = null;
+        pendingOffer = null;
+        pendingCandidates = [];
+        clearInterval(callTimerInterval);
+        
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+        }
+        localVideo.style.display = "none";
+        remoteVideo.style.display = "none";
+        localVideo.srcObject = null;
+        remoteVideo.srcObject = null;
+    }
+
+    async function initWebRTC(isVideo) {
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        
+        peerConnection.onicecandidate = event => {
+            if (event.candidate && currentConversationId) {
+                connection.invoke("SendWebRTCSignal", currentConversationId, JSON.stringify({ 'candidate': event.candidate }));
+            }
+        };
+
+        peerConnection.ontrack = event => {
+            remoteVideo.style.display = "block";
+            remoteVideo.srcObject = event.streams[0];
+        };
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+            if (isVideo) {
+                localVideo.style.display = "block";
+                localVideo.srcObject = localStream;
+            }
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        } catch (e) {
+            console.error("Camera/Mic error:", e);
+            alert("Không thể truy cập Camera/Microphone.");
+        }
+    }
+
+    // 1. Caller Initiates Call
+    async function startCall(isVideo) {
+        if(!currentConversationId) return;
+        currentCallType = isVideo ? 1 : 0;
+        
+        await initWebRTC(isVideo);
+        
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        const command = { conversationId: currentConversationId, callerId: currentUserId, type: currentCallType }; 
+        await connection.invoke("InitiateCall", command);
+        
+        // Sau khi báo gọi, gửi Offer SDP
+        setTimeout(() => {
+            connection.invoke("SendWebRTCSignal", currentConversationId, JSON.stringify({ 'sdp': peerConnection.localDescription }));
+        }, 500);
+
+        showCallOverlay(isVideo ? "Đang gọi Video..." : "Đang gọi đi...", currentChatTitle.innerText, isVideo ? "fa-video" : "fa-phone", 
+            `<button class="btn btn-danger btn-lg" onclick="endCall()"><i class="fa-solid fa-phone-slash"></i> Kết thúc</button>`);
+    }
+
+    document.getElementById("btnCallAudio").addEventListener("click", () => startCall(false));
+    document.getElementById("btnCallVideo").addEventListener("click", () => startCall(true));
+
+    connection.on("CallInitiated", function(callId) {
+        currentCallId = callId;
+    });
+
+    // 2. Receiver gets Incoming Call
+    connection.on("IncomingCall", function (callInfo) {
+        if (callInfo.callerId === currentUserId) return; 
+        currentCallId = callInfo.callId;
+        currentCallType = callInfo.type;
+        const isVideo = currentCallType === 1;
+        showCallOverlay(isVideo ? "Cuộc gọi Video đến" : "Cuộc gọi Audio đến", "Từ: " + currentChatTitle.innerText, isVideo ? "fa-video" : "fa-phone",
+            `<button class="btn btn-success btn-lg" onclick="acceptCall()"><i class="fa-solid fa-phone"></i> Nghe</button>
+             <button class="btn btn-danger btn-lg" onclick="rejectCall()"><i class="fa-solid fa-phone-slash"></i> Từ chối</button>`);
+    });
+
+    // 3. Status Updates
+    connection.on("CallAccepted", function (callId) {
+        if(currentCallId !== callId) return;
+        startTimer();
+    });
+
+    connection.on("CallRejected", function (callId) {
+        if(currentCallId !== callId) return;
+        cleanupCall();
+        alert("Cuộc gọi bị từ chối");
+    });
+
+    connection.on("CallEnded", function (callId) {
+        if(currentCallId !== callId) return;
+        cleanupCall();
+    });
+
+    // Nhận Signaling WebRTC (Offer / Answer / ICE)
+    connection.on("ReceiveWebRTCSignal", async function(payloadStr) {
+        const message = JSON.parse(payloadStr);
+        
+        if (!peerConnection) {
+            if (message.sdp && message.sdp.type === 'offer') {
+                pendingOffer = message.sdp;
+            } else if (message.candidate) {
+                pendingCandidates.push(message.candidate);
+            }
+            return;
+        }
+
+        await processWebRTCSignal(message);
+    });
+
+    async function processWebRTCSignal(message) {
+        if (message.sdp) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+            if (message.sdp.type === 'offer') {
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                connection.invoke("SendWebRTCSignal", currentConversationId, JSON.stringify({ 'sdp': peerConnection.localDescription }));
+            }
+        } else if (message.candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        }
+    }
+
+    // 4. Action Functions
+    window.acceptCall = async function() {
+        if(!currentCallId) return;
+        
+        // Khởi tạo RTC và cam/mic phía người nghe
+        await initWebRTC(currentCallType === 1);
+        
+        if (pendingOffer) {
+            await processWebRTCSignal({ sdp: pendingOffer });
+            pendingOffer = null;
+            for (let c of pendingCandidates) {
+                await processWebRTCSignal({ candidate: c });
+            }
+            pendingCandidates = [];
+        }
+
+        await connection.invoke("AcceptCall", currentCallId, currentConversationId);
+        startTimer();
+    };
+
+    window.rejectCall = async function() {
+        if(!currentCallId) return;
+        await connection.invoke("RejectCall", currentCallId, currentConversationId);
+        cleanupCall();
+    };
+
+    window.endCall = async function() {
+        if(currentCallId) {
+             await connection.invoke("EndCall", currentCallId, currentConversationId);
+        }
+        cleanupCall();
+    };
+
+    function startTimer() {
+        showCallOverlay("Cuộc gọi đang diễn ra...", "00:00", "fa-headset",
+            `<button class="btn btn-danger btn-lg" onclick="endCall()"><i class="fa-solid fa-phone-slash"></i> Tắt máy</button>`);
+        
+        callSeconds = 0;
+        callDetailsText.innerText = "00:00";
+        clearInterval(callTimerInterval);
+        callTimerInterval = setInterval(() => {
+            callSeconds++;
+            callDetailsText.innerText = formatDuration(callSeconds);
+        }, 1000);
+    }
+</script>
+</body>
+</html>
