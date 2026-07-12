@@ -34,11 +34,14 @@ app.SeedDatabase();
 
 // Cho phép load file tĩnh (index.html)
 app.UseStaticFiles();
+app.UseBlazorFrameworkFiles();
 
 app.UseAuthorization();
 app.MapControllers();
 
 // Map SignalR Hub
 app.MapHub<ChatHub>("/chathub");
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
