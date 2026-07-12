@@ -9,8 +9,14 @@ public class User
     public string Username { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? Bio { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
     public bool IsOnline { get; set; }
     public DateTime? LastSeenAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
     // Navigation properties
     public ICollection<Participant> Participants { get; set; } = new List<Participant>();
