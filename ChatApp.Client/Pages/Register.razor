@@ -1,0 +1,107 @@
+@page "/register"
+@using ChatApp.Shared.DTOs.Auth
+@using ChatApp.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">Đăng ký STALKchat</h3>
+
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="alert alert-danger">@ErrorMessage</div>
+                    }
+
+                    <EditForm Model="registerModel" OnValidSubmit="HandleRegistration">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="registerModel.Email" class="form-control" placeholder="name@example.com" />
+                            <ValidationMessage For="@(() => registerModel.Email)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Display Name</label>
+                            <InputText @bind-Value="registerModel.DisplayName" class="form-control" placeholder="Tên hiển thị của bạn" />
+                            <ValidationMessage For="@(() => registerModel.DisplayName)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <InputText @bind-Value="registerModel.Password" type="password" class="form-control" />
+                            <ValidationMessage For="@(() => registerModel.Password)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Confirm Password</label>
+                            <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" />
+                            <ValidationMessage For="@(() => registerModel.ConfirmPassword)" class="text-danger" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span> Đang xử lý...</span>
+                            }
+                            else
+                            {
+                                <span>Đăng ký</span>
+                            }
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerModel = new();
+    private bool isLoading = false;
+    private string? ErrorMessage;
+
+    private async Task HandleRegistration()
+    {
+        isLoading = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var response = await AuthService.RegisterAsync(registerModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Cookie đã được set tự động từ server
+                NavigationManager.NavigateTo("/"); // Chuyển về trang chủ
+            }
+            else
+            {
+                // Xử lý lỗi (vd: 409 Conflict, 400 Bad Request)
+                var errorContent = await response.Content.ReadAsStringAsync();
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    ErrorMessage = "Email này đã được sử dụng. Vui lòng chọn Email khác.";
+                }
+                else
+                {
+                    ErrorMessage = "Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Lỗi kết nối tới máy chủ: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

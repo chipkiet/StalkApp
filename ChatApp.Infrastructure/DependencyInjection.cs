@@ -18,6 +18,7 @@ public static class DependencyInjection
 
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ChatApp.Application.Interfaces.Security.IPasswordHasher, ChatApp.Infrastructure.Security.BCryptPasswordHasher>();
 
         return services;
     }

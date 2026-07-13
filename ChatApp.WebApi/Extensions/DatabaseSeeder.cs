@@ -32,6 +32,8 @@ public static class DatabaseSeeder
             {
                 Id = Guid.NewGuid(),
                 Username = "thien",
+                Email = "thien@stalk.com",
+                PasswordHash = "dummy_hash",
                 DisplayName = "Nguyễn Lương Hoàng Thiên",
                 IsOnline = true,
                 LastSeenAt = DateTime.UtcNow
@@ -41,6 +43,8 @@ public static class DatabaseSeeder
             {
                 Id = Guid.NewGuid(),
                 Username = "aechill",
+                Email = "aechill@stalk.com",
+                PasswordHash = "dummy_hash",
                 DisplayName = "AE Chill",
                 IsOnline = true,
                 LastSeenAt = DateTime.UtcNow

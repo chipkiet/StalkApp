@@ -16,10 +16,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
         builder.Property(x => x.AvatarUrl).HasMaxLength(500);
 
+        builder.Property(x => x.Email).HasMaxLength(255).IsRequired();
+        builder.HasIndex(x => x.Email).IsUnique();
+
+        builder.Property(x => x.PasswordHash).IsRequired();
+
         builder.Property(x => x.PhoneNumber).HasMaxLength(20);
         builder.HasIndex(x => x.PhoneNumber).IsUnique();
 
         builder.Property(x => x.Bio).HasMaxLength(500);
-        builder.Property(x => x.RefreshToken).HasMaxLength(256);
     }
 }
