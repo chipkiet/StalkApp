@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stalkchat_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: stalk_password_123
+      POSTGRES_DB: stalkchat_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
