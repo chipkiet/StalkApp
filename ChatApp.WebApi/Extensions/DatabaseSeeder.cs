@@ -11,26 +11,27 @@ namespace ChatApp.WebApi.Extensions;
 
 public static class DatabaseSeeder
 {
+    // Fixed IDs so demo login stays stable across restarts
+    public static readonly Guid ThienId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid AeChillId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid TestRoomId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
     public static void SeedDatabase(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
 
-        // Xóa DB cũ để cập nhật tên mới
         context.Database.EnsureDeleted();
-        
-        // Tự động apply pending migrations
         context.Database.EnsureCreated();
 
         if (!context.Users.Any())
         {
             logger.LogInformation("Bắt đầu mồi dữ liệu (Seeding) ảo để test...");
 
-            // 1. Tạo User ảo
             var thien = new User
             {
-                Id = Guid.NewGuid(),
+                Id = ThienId,
                 Username = "thien",
                 DisplayName = "Nguyễn Lương Hoàng Thiên",
                 IsOnline = true,
@@ -39,7 +40,7 @@ public static class DatabaseSeeder
 
             var aechill = new User
             {
-                Id = Guid.NewGuid(),
+                Id = AeChillId,
                 Username = "aechill",
                 DisplayName = "AE Chill",
                 IsOnline = true,
@@ -48,17 +49,15 @@ public static class DatabaseSeeder
 
             context.Users.AddRange(thien, aechill);
 
-            // 2. Tạo Phòng Chat (Conversation)
             var conversation = new Conversation
             {
-                Id = Guid.NewGuid(),
+                Id = TestRoomId,
                 Title = "Test Room",
                 Type = ConversationType.Group,
                 CreatedAt = DateTime.UtcNow
             };
             context.Conversations.Add(conversation);
 
-            // 3. Thêm Thiên và AE Chill vào Phòng
             context.Participants.AddRange(
                 new Participant { ConversationId = conversation.Id, UserId = thien.Id, Role = ParticipantRole.Admin, JoinedAt = DateTime.UtcNow },
                 new Participant { ConversationId = conversation.Id, UserId = aechill.Id, Role = ParticipantRole.Member, JoinedAt = DateTime.UtcNow }
@@ -67,23 +66,7 @@ public static class DatabaseSeeder
             context.SaveChanges();
 
             logger.LogInformation("Seed dữ liệu thành công!");
-            logger.LogWarning("--------------------------------------------------");
-            logger.LogWarning($"THIÊN ID: {thien.Id}");
-            logger.LogWarning($"AE CHILL ID: {aechill.Id}");
-            logger.LogWarning($"CONVERSATION ID: {conversation.Id}");
-            logger.LogWarning("COPY CÁC ID NÀY ĐỂ NHẬP VÀO FILE INDEX.HTML NHÉ!");
-            logger.LogWarning("--------------------------------------------------");
-        }
-        else
-        {
-            // In lại ID ra console cho dễ copy
-            var thien = context.Users.FirstOrDefault(u => u.DisplayName.Contains("Thiên"));
-            var conv = context.Conversations.FirstOrDefault();
-            if (thien != null && conv != null)
-            {
-                logger.LogInformation($"Nhắc lại THIÊN ID: {thien.Id}");
-                logger.LogInformation($"Nhắc lại CONVERSATION ID: {conv.Id}");
-            }
+            logger.LogWarning("Demo users: Thiên={ThienId}, AE Chill={AeChillId}, Room={RoomId}", ThienId, AeChillId, TestRoomId);
         }
     }
 }

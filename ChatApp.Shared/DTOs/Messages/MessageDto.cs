@@ -16,5 +16,9 @@ public record MessageDto(
     bool IsPinned = false,
     bool IsDeleted = false,
     DateTime? UpdatedAt = null,
-    IReadOnlyList<ReactionDto>? Reactions = null
+    IReadOnlyList<ReactionDto>? Reactions = null,
+    Guid? ReplyToMessageId = null,
+    ReplyPreviewDto? ReplyTo = null,
+    Guid? ForwardedFromMessageId = null,
+    bool IsForwarded = false
 );
