@@ -13,13 +13,16 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
 {
     private readonly IGenericRepository<Message> _messageRepository;
     private readonly IGenericRepository<Attachment> _attachmentRepository;
+    private readonly IGenericRepository<MessageReaction> _reactionRepository;
 
     public GetMessagesQueryHandler(
         IGenericRepository<Message> messageRepository,
-        IGenericRepository<Attachment> attachmentRepository)
+        IGenericRepository<Attachment> attachmentRepository,
+        IGenericRepository<MessageReaction> reactionRepository)
     {
         _messageRepository = messageRepository;
         _attachmentRepository = attachmentRepository;
+        _reactionRepository = reactionRepository;
     }
 
     public async Task<List<MessageDto>> Handle(GetMessagesQuery request, CancellationToken cancellationToken)
@@ -29,24 +32,33 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
 
         var messageIds = messageList.Select(m => m.Id).ToList();
         var attachments = await _attachmentRepository.FindAsync(a => messageIds.Contains(a.MessageId));
+        var reactions = await _reactionRepository.FindAsync(r => messageIds.Contains(r.MessageId));
 
-        var result = messageList.Select(m => {
+        var result = messageList.Select(m =>
+        {
             var att = attachments.FirstOrDefault(a => a.MessageId == m.Id);
+            var messageReactions = reactions
+                .Where(r => r.MessageId == m.Id)
+                .Select(r => new ReactionDto(r.UserId, r.Emotion))
+                .ToList();
+
             return new MessageDto(
                 m.Id,
                 m.ConversationId,
                 m.SenderId,
                 m.MessageType,
-                m.Content,
+                m.IsDeleted ? null : m.Content,
                 m.CreatedAt,
-                att?.FileUrl,
-                att?.FileName
+                m.IsDeleted ? null : att?.FileUrl,
+                m.IsDeleted ? null : att?.FileName,
+                m.IsPinned,
+                m.IsDeleted,
+                m.UpdatedAt,
+                messageReactions
             );
         }).ToList();
 
-        // Lật ngược lại để trả về theo thứ tự cũ -> mới (hiển thị chat từ trên xuống)
         result.Reverse();
-
         return result;
     }
 }

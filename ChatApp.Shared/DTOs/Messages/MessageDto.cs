@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ChatApp.Domain.Enums;
 
 namespace ChatApp.Application.DTOs.Messages;
@@ -8,8 +9,12 @@ public record MessageDto(
     Guid ConversationId,
     Guid SenderId,
     MessageType MessageType,
-    string Content,
+    string? Content,
     DateTime CreatedAt,
     string? AttachmentUrl = null,
-    string? AttachmentName = null
+    string? AttachmentName = null,
+    bool IsPinned = false,
+    bool IsDeleted = false,
+    DateTime? UpdatedAt = null,
+    IReadOnlyList<ReactionDto>? Reactions = null
 );
