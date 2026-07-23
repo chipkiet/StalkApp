@@ -1,0 +1,319 @@
+@page "/login"
+@layout AuthLayout
+@using ChatApp.Shared.DTOs.Auth
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+<PageTitle>Đăng nhập – STALKchat</PageTitle>
+
+<div class="auth-root">
+    <div class="auth-card">
+
+        <!-- Logo -->
+        <div class="auth-logo">
+            <div class="brand">STALK</div>
+            <div class="tagline">Connect · Chat · Call</div>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="step-dots">
+            <div class="step-dot @(step == 1 ? "active" : "")"></div>
+            <div class="step-dot @(step == 2 ? "active" : "")"></div>
+        </div>
+
+        <!-- ═══ STEP 1: Nhập số điện thoại ═══ -->
+        @if (step == 1)
+        {
+            <div class="auth-heading">
+                <h2>Chào mừng trở lại 👋</h2>
+                <p>Nhập số điện thoại để tiếp tục</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="phone-input">Số điện thoại</label>
+                <input id="phone-input"
+                       class="form-input"
+                       type="tel"
+                       placeholder="+84 912 345 678"
+                       @bind="phoneNumber"
+                       @bind:event="oninput"
+                       @onkeydown="OnPhoneKeyDown"
+                       disabled="@isLoading"
+                       autocomplete="tel" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert-error">@errorMessage</div>
+            }
+
+            <button class="btn-primary-stalk"
+                    id="btn-send-otp"
+                    @onclick="SendOtp"
+                    disabled="@(isLoading || string.IsNullOrWhiteSpace(phoneNumber))">
+                @if (isLoading)
+                {
+                    <span class="spinner"></span>
+                    <span>Đang gửi...</span>
+                }
+                else
+                {
+                    <span>Gửi mã OTP</span>
+                    <span>→</span>
+                }
+            </button>
+        }
+
+        <!-- ═══ STEP 2: Nhập OTP ═══ -->
+        @if (step == 2)
+        {
+            <div class="auth-heading">
+                <h2>Xác minh số điện thoại</h2>
+                <p>
+                    Nhập mã 6 số đã gửi đến<br/>
+                    <span class="phone-highlight">@phoneNumber</span>
+                </p>
+            </div>
+
+            <!-- 6 ô nhập OTP -->
+            <div class="otp-group" id="otp-group">
+                @for (int i = 0; i < 6; i++)
+                {
+                    var idx = i;
+                    <input class="otp-digit @(otpDigits[idx] != '\0' ? "filled" : "")"
+                           id="otp-@idx"
+                           type="text"
+                           inputmode="numeric"
+                           maxlength="1"
+                           value="@(otpDigits[idx] == '\0' ? "" : otpDigits[idx].ToString())"
+                           @oninput="e => OnOtpInput(e, idx)"
+                           @onkeydown="e => OnOtpKeyDown(e, idx)"
+                           disabled="@isLoading"
+                           autocomplete="one-time-code" />
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert-error">@errorMessage</div>
+            }
+
+            <div class="otp-meta">
+                <span>
+                    @if (resendCountdown > 0)
+                    { <text>Gửi lại sau @resendCountdown giây</text> }
+                </span>
+                <button class="otp-resend-btn"
+                        id="btn-resend"
+                        @onclick="ResendOtp"
+                        disabled="@(resendCountdown > 0 || isLoading)">
+                    Gửi lại
+                </button>
+            </div>
+
+            <button class="btn-primary-stalk"
+                    id="btn-verify-otp"
+                    @onclick="VerifyOtp"
+                    disabled="@(isLoading || OtpCode.Length < 6)">
+                @if (isLoading)
+                {
+                    <span class="spinner"></span>
+                    <span>Đang xác minh...</span>
+                }
+                else
+                {
+                    <span>Xác minh</span>
+                    <span>→</span>
+                }
+            </button>
+
+            <button class="btn-ghost"
+                    style="width: 100%; margin-top: 12px;"
+                    id="btn-back"
+                    @onclick="GoBack"
+                    disabled="@isLoading">
+                ← Đổi số điện thoại
+            </button>
+        }
+
+    </div>
+</div>
+
+@code {
+    private int step = 1;
+    private string phoneNumber = string.Empty;
+    private char[] otpDigits = new char[6];
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private int resendCountdown = 0;
+    private System.Timers.Timer? resendTimer;
+
+    private string OtpCode => new string(otpDigits).Replace("\0", "");
+
+    // ── Step 1: Gửi OTP ────────────────────────────────────────────────────
+    private async Task SendOtp()
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber)) return;
+
+        errorMessage = string.Empty;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/auth/send-otp", new SendOtpRequest
+            {
+                PhoneNumber = phoneNumber.Trim()
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                step = 2;
+                otpDigits = new char[6];
+                StartResendCountdown();
+            }
+            else
+            {
+                var err = await response.Content.ReadFromJsonAsync<ErrorDto>();
+                errorMessage = err?.Message ?? "Không thể gửi OTP. Vui lòng thử lại.";
+            }
+        }
+        catch
+        {
+            errorMessage = "Không kết nối được tới server. Vui lòng kiểm tra mạng.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Step 2: Xác minh OTP ───────────────────────────────────────────────
+    private async Task VerifyOtp()
+    {
+        if (OtpCode.Length < 6) return;
+
+        errorMessage = string.Empty;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/auth/verify-otp", new VerifyOtpRequest
+            {
+                PhoneNumber = phoneNumber.Trim(),
+                OtpCode = OtpCode
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
+                if (auth != null && !string.IsNullOrEmpty(auth.AccessToken))
+                {
+                    if (AuthStateProvider is Providers.CustomAuthStateProvider customProvider)
+                    {
+                        await customProvider.MarkUserAsAuthenticated(auth.AccessToken);
+                    }
+                    Nav.NavigateTo("/");
+                }
+            }
+            else
+            {
+                var err = await response.Content.ReadFromJsonAsync<ErrorDto>();
+                errorMessage = err?.Message ?? "OTP không đúng hoặc đã hết hạn.";
+                // Xoá OTP để nhập lại
+                otpDigits = new char[6];
+            }
+        }
+        catch
+        {
+            errorMessage = "Không kết nối được tới server. Vui lòng kiểm tra mạng.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResendOtp()
+    {
+        otpDigits = new char[6];
+        errorMessage = string.Empty;
+        await SendOtp();
+    }
+
+    private void GoBack()
+    {
+        step = 1;
+        errorMessage = string.Empty;
+        otpDigits = new char[6];
+        StopResendTimer();
+    }
+
+    // ── Keyboard handlers ───────────────────────────────────────────────────
+    private async Task OnPhoneKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendOtp();
+    }
+
+    private void OnOtpInput(ChangeEventArgs e, int index)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (val.Length > 0 && char.IsDigit(val[^1]))
+        {
+            otpDigits[index] = val[^1];
+            // Auto focus next
+            if (index < 5)
+            {
+                // Focus next via JS (simplified – will auto-navigate)
+            }
+        }
+        else
+        {
+            otpDigits[index] = '\0';
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnOtpKeyDown(KeyboardEventArgs e, int index)
+    {
+        if (e.Key == "Enter" && OtpCode.Length == 6)
+            await VerifyOtp();
+    }
+
+    // ── Resend Countdown ────────────────────────────────────────────────────
+    private void StartResendCountdown()
+    {
+        StopResendTimer();
+        resendCountdown = 60;
+        resendTimer = new System.Timers.Timer(1000);
+        resendTimer.Elapsed += (_, _) =>
+        {
+            if (resendCountdown > 0)
+            {
+                resendCountdown--;
+                InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                StopResendTimer();
+            }
+        };
+        resendTimer.Start();
+    }
+
+    private void StopResendTimer()
+    {
+        resendTimer?.Stop();
+        resendTimer?.Dispose();
+        resendTimer = null;
+        resendCountdown = 0;
+    }
+
+    public void Dispose() => StopResendTimer();
+
+    // Simple error DTO for parsing server error messages
+    private record ErrorDto(string Message);
+}

@@ -1,0 +1,265 @@
+@page "/profile"
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthStateProvider
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>Hồ sơ – STALKchat</PageTitle>
+
+<div class="profile-page">
+    <div class="profile-card">
+
+        <!-- Avatar preview + upload -->
+        <div class="profile-avatar-wrap">
+            <div class="profile-avatar" id="profile-avatar-preview"
+                 style="@(string.IsNullOrEmpty(form.AvatarUrl) ? "" : $"background-image:url('{form.AvatarUrl}');background-size:cover;background-position:center;")">
+                @if (string.IsNullOrEmpty(form.AvatarUrl))
+                {
+                    <span>@AvatarInitials</span>
+                }
+            </div>
+
+            <label class="profile-avatar-upload-btn" for="avatar-file-input">
+                @if (isUploading)
+                {
+                    <span class="spinner-sm"></span>
+                    <span>Đang tải...</span>
+                }
+                else
+                {
+                    <span>📷 Đổi ảnh đại diện</span>
+                }
+            </label>
+            <InputFile id="avatar-file-input" class="avatar-file-hidden"
+                       accept="image/*"
+                       OnChange="OnAvatarFileChanged"
+                       disabled="@isUploading" />
+
+            @if (!string.IsNullOrEmpty(uploadError))
+            {
+                <div class="avatar-upload-error">@uploadError</div>
+            }
+        </div>
+
+        <h1 class="profile-heading">Cài đặt hồ sơ</h1>
+        <p class="profile-sub">Cập nhật thông tin cá nhân của bạn</p>
+
+        @if (!string.IsNullOrEmpty(successMsg))
+        {
+            <div class="profile-alert profile-alert-success">✓ @successMsg</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMsg))
+        {
+            <div class="profile-alert profile-alert-error">✗ @errorMsg</div>
+        }
+
+        <div class="profile-form">
+
+            <div class="profile-form-group">
+                <label class="profile-label">Tên hiển thị <span class="required">*</span></label>
+                <input class="profile-input"
+                       type="text"
+                       placeholder="Tên của bạn"
+                       @bind="form.DisplayName"
+                       disabled="@isSaving" />
+            </div>
+
+            <div class="profile-form-group">
+                <label class="profile-label">Tên người dùng (username)</label>
+                <div class="profile-input-prefix-wrap">
+                    <span class="profile-input-prefix">@@</span>
+                    <input class="profile-input profile-input-prefixed"
+                           type="text"
+                           placeholder="ten_nguoi_dung"
+                           @bind="form.Username"
+                           disabled="@isSaving" />
+                </div>
+            </div>
+
+            <div class="profile-form-group">
+                <label class="profile-label">Giới thiệu bản thân (Bio)</label>
+                <textarea class="profile-input profile-textarea"
+                          placeholder="Viết vài dòng về bản thân..."
+                          @bind="form.Bio"
+                          disabled="@isSaving"
+                          rows="3"></textarea>
+            </div>
+
+            <button class="profile-save-btn"
+                    @onclick="SaveProfile"
+                    disabled="@(isSaving || isUploading || string.IsNullOrWhiteSpace(form.DisplayName))">
+                @if (isSaving)
+                {
+                    <span class="spinner"></span>
+                    <span>Đang lưu...</span>
+                }
+                else
+                {
+                    <span>Lưu thay đổi</span>
+                }
+            </button>
+
+        </div>
+
+        <!-- Thông tin chỉ đọc -->
+        <div class="profile-readonly">
+            <div class="profile-readonly-item">
+                <span class="profile-readonly-label">Số điện thoại</span>
+                <span class="profile-readonly-value">@phoneNumber</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private UpdateProfileRequest form = new();
+    private string AvatarInitials = "?";
+    private string phoneNumber = "";
+
+    private bool isSaving = false;
+    private bool isUploading = false;
+    private string? successMsg;
+    private string? errorMsg;
+    private string? uploadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            try
+            {
+                var profile = await Http.GetFromJsonAsync<UserProfileDto>("/api/users/me");
+                if (profile != null)
+                {
+                    form.DisplayName = profile.DisplayName ?? "";
+                    form.Username = profile.Username ?? "";
+                    form.Bio = profile.Bio ?? "";
+                    form.AvatarUrl = profile.AvatarUrl ?? "";
+                    phoneNumber = profile.PhoneNumber ?? "";
+                    AvatarInitials = GetInitials(form.DisplayName);
+                }
+            }
+            catch
+            {
+                // Fallback to claims if API fails
+                form.DisplayName = authState.User.FindFirst("displayName")?.Value ?? authState.User.Identity.Name ?? "";
+                phoneNumber = authState.User.FindFirst("phoneNumber")?.Value ?? "";
+                AvatarInitials = GetInitials(form.DisplayName);
+            }
+        }
+    }
+
+    private async Task OnAvatarFileChanged(InputFileChangeEventArgs e)
+    {
+        uploadError = null;
+        var file = e.File;
+
+        // Giới hạn 5MB
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            uploadError = "Ảnh không được vượt quá 5MB.";
+            return;
+        }
+
+        // Chỉ chấp nhận ảnh
+        if (!file.ContentType.StartsWith("image/"))
+        {
+            uploadError = "Vui lòng chọn file ảnh (JPG, PNG, GIF...).";
+            return;
+        }
+
+        isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var resp = await Http.PostAsync("/api/attachments/upload", content);
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<UploadResultDto>();
+                if (result?.Url != null)
+                {
+                    form.AvatarUrl = result.Url;
+                }
+            }
+            else
+            {
+                uploadError = "Upload ảnh thất bại. Vui lòng thử lại.";
+            }
+        }
+        catch
+        {
+            uploadError = "Lỗi kết nối khi upload ảnh.";
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        if (string.IsNullOrWhiteSpace(form.DisplayName)) return;
+
+        isSaving = true;
+        successMsg = null;
+        errorMsg = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync("/api/users/profile", form);
+            if (response.IsSuccessStatusCode)
+            {
+                successMsg = "Cập nhật hồ sơ thành công!";
+                AvatarInitials = GetInitials(form.DisplayName);
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                errorMsg = "Có lỗi xảy ra. Vui lòng thử lại.";
+            }
+        }
+        catch
+        {
+            errorMsg = "Không kết nối được tới server.";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        return name[0].ToString().ToUpper();
+    }
+
+    private class UploadResultDto
+    {
+        public string? Url { get; set; }
+    }
+
+    private class UserProfileDto
+    {
+        public Guid Id { get; set; }
+        public string? DisplayName { get; set; }
+        public string? Username { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? Bio { get; set; }
+    }
+}

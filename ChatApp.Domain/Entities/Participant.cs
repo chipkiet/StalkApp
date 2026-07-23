@@ -10,6 +10,8 @@ public class Participant
     public ParticipantRole Role { get; set; }
     public Guid? LastReadMessageId { get; set; }
     public DateTime JoinedAt { get; set; }
+    public bool HasDeleted { get; set; } = false;
+    public DateTime? ClearedAt { get; set; }
 
     // Navigation properties
     public Conversation Conversation { get; set; } = null!;

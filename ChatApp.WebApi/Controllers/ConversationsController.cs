@@ -30,4 +30,34 @@ public class ConversationsController : ControllerBase
         var result = await _mediator.Send(command);
         return Ok(result);
     }
+
+    [HttpDelete("{conversationId}/user/{userId}")]
+    public async Task<IActionResult> DeleteConversation(Guid conversationId, Guid userId)
+    {
+        var command = new ChatApp.Application.Features.Conversations.Commands.DeleteConversation.DeleteConversationCommand(conversationId, userId);
+        await _mediator.Send(command);
+        return Ok();
+    }
+
+    [HttpGet("{id}/participants")]
+    public async Task<IActionResult> GetParticipants(Guid id, [FromServices] ChatApp.Application.Interfaces.Repositories.IGenericRepository<ChatApp.Domain.Entities.Participant> participantRepo, [FromServices] ChatApp.Application.Interfaces.Repositories.IGenericRepository<ChatApp.Domain.Entities.User> userRepo)
+    {
+        var participants = await participantRepo.FindAsync(p => p.ConversationId == id);
+        var result = new System.Collections.Generic.List<object>();
+        foreach(var p in participants)
+        {
+            var user = await userRepo.GetByIdAsync(p.UserId);
+            if (user != null)
+            {
+                result.Add(new {
+                    userId = user.Id,
+                    displayName = user.DisplayName,
+                    phoneNumber = user.PhoneNumber,
+                    avatarUrl = user.AvatarUrl,
+                    bio = user.Bio
+                });
+            }
+        }
+        return Ok(result);
+    }
 }

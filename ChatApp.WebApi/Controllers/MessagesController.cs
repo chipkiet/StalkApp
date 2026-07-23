@@ -23,10 +23,10 @@ public class MessagesController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpGet("{conversationId}")]
-    public async Task<IActionResult> GetMessages(Guid conversationId, [FromQuery] int count = 50)
+    [HttpGet("{conversationId}/user/{userId}")]
+    public async Task<IActionResult> GetMessages(Guid conversationId, Guid userId, [FromQuery] int count = 50)
     {
-        var result = await _mediator.Send(new GetMessagesQuery(conversationId, count));
+        var result = await _mediator.Send(new GetMessagesQuery(conversationId, userId, count));
         return Ok(result);
     }
 

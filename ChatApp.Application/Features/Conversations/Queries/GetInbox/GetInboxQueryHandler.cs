@@ -27,7 +27,7 @@ public class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, List<InboxIte
 
     public async Task<List<InboxItemDto>> Handle(GetInboxQuery request, CancellationToken cancellationToken)
     {
-        var participants = await _participantRepository.FindAsync(p => p.UserId == request.UserId);
+        var participants = await _participantRepository.FindAsync(p => p.UserId == request.UserId && !p.HasDeleted);
 
         var result = new List<InboxItemDto>();
 
@@ -37,6 +37,10 @@ public class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, List<InboxIte
             if (conversation == null) continue;
 
             var messages = await _messageRepository.FindAsync(m => m.ConversationId == p.ConversationId);
+            if (p.ClearedAt.HasValue)
+            {
+                messages = messages.Where(m => m.CreatedAt >= p.ClearedAt.Value);
+            }
             var lastMsg = messages.OrderByDescending(m => m.CreatedAt).FirstOrDefault();
 
             result.Add(new InboxItemDto(

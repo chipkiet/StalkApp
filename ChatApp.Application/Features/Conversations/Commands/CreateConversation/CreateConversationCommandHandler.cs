@@ -45,6 +45,33 @@ public class CreateConversationCommandHandler : IRequestHandler<CreateConversati
             participantIds.Add(request.CreatorId);
         }
 
+        // Kiểm tra xem cuộc trò chuyện Direct giữa 2 người này đã tồn tại chưa
+        if (request.Type == ConversationType.Direct && participantIds.Count == 2)
+        {
+            var u1 = participantIds[0];
+            var u2 = participantIds[1];
+            var existingConvId = _conversationRepository.GetQueryable()
+                .Where(c => c.Type == ConversationType.Direct)
+                .Where(c => c.Participants.Any(p => p.UserId == u1) && c.Participants.Any(p => p.UserId == u2))
+                .Select(c => c.Id)
+                .FirstOrDefault();
+
+            if (existingConvId != Guid.Empty)
+            {
+                var existingParticipant = _participantRepository.GetQueryable()
+                    .FirstOrDefault(p => p.ConversationId == existingConvId && p.UserId == request.CreatorId);
+                
+                if (existingParticipant != null && existingParticipant.HasDeleted)
+                {
+                    existingParticipant.HasDeleted = false;
+                    _participantRepository.Update(existingParticipant);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+
+                return existingConvId;
+            }
+        }
+
         // 3. Tạo Participants
         foreach (var userId in participantIds)
         {
