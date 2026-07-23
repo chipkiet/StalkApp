@@ -1,39 +1,108 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">ChatApp.Client</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<div class="nav-sidebar">
+
+    <!-- Brand -->
+    <div class="nav-brand">
+        <span class="nav-brand-logo">S</span>
+        <span class="nav-brand-name">STALK</span>
+    </div>
+
+    <!-- User Info -->
+    <div class="nav-user-card">
+        <div class="nav-avatar" style="@(string.IsNullOrEmpty(AvatarUrl) ? "" : $"background-image:url('{AvatarUrl}');background-size:cover;background-position:center;")">
+            @if (string.IsNullOrEmpty(AvatarUrl))
+            {
+                <span>@AvatarInitials</span>
+            }
+        </div>
+        <div class="nav-user-info">
+            <div class="nav-user-display">@DisplayName</div>
+            <div class="nav-user-phone">@PhoneNumber</div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-links">
+        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+            <span class="nav-icon">💬</span>
+            <span>Tin nhắn</span>
+        </NavLink>
+        <NavLink class="nav-item" href="profile">
+            <span class="nav-icon">👤</span>
+            <span>Hồ sơ</span>
+        </NavLink>
+    </nav>
+
+    <!-- Logout -->
+    <div class="nav-footer">
+        <button class="nav-logout-btn" @onclick="Logout">
+            <span>⎋</span>
+            <span>Đăng xuất</span>
         </button>
     </div>
-</div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
 </div>
 
 @code {
-    private bool collapseNavMenu = true;
+    private string DisplayName = "Đang tải...";
+    private string PhoneNumber = "";
+    private string AvatarInitials = "?";
+    private string? AvatarUrl = null;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
+    protected override async Task OnInitializedAsync()
     {
-        collapseNavMenu = !collapseNavMenu;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            try
+            {
+                var profile = await Http.GetFromJsonAsync<UserProfileDto>("/api/users/me");
+                if (profile != null)
+                {
+                    DisplayName = profile.DisplayName ?? "Người dùng";
+                    PhoneNumber = profile.PhoneNumber ?? "";
+                    AvatarUrl = profile.AvatarUrl;
+                    AvatarInitials = GetInitials(DisplayName);
+                }
+            }
+            catch
+            {
+                DisplayName = user.FindFirst("displayName")?.Value
+                           ?? user.Identity.Name
+                           ?? "Người dùng";
+                PhoneNumber = user.FindFirst("phoneNumber")?.Value ?? "";
+                AvatarInitials = GetInitials(DisplayName);
+            }
+        }
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        return name[0].ToString().ToUpper();
+    }
+
+    private async Task Logout()
+    {
+        if (AuthStateProvider is Providers.CustomAuthStateProvider customProvider)
+            await customProvider.MarkUserAsLoggedOut();
+        Nav.NavigateTo("/login");
+    }
+
+    private class UserProfileDto
+    {
+        public Guid Id { get; set; }
+        public string? DisplayName { get; set; }
+        public string? Username { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? Bio { get; set; }
     }
 }

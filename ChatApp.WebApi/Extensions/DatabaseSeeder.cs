@@ -17,8 +17,8 @@ public static class DatabaseSeeder
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
 
-        // Xóa DB cũ để cập nhật tên mới
-        context.Database.EnsureDeleted();
+        // Bỏ dòng EnsureDeleted để không bị mất dữ liệu cũ sau mỗi lần khởi động lại Server
+        // context.Database.EnsureDeleted();
         
         // Tự động apply pending migrations
         context.Database.EnsureCreated();

@@ -1,7 +1,459 @@
-﻿@page "/"
+@page "/"
+@attribute [Authorize]
+@using ChatApp.Application.DTOs.Conversations
+@using ChatApp.Domain.Enums
+@inject AuthenticationStateProvider AuthStateProvider
+@inject HttpClient Http
+@inject NavigationManager Nav
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Tin nhắn – STALKchat</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="chat-shell">
 
-Welcome to your new app.
+    <!-- ═══ CỘT TRÁI: INBOX LIST ═══ -->
+    <div class="inbox-panel">
+        <div class="inbox-header">
+            <h2 class="inbox-title">Tin nhắn</h2>
+            <button class="inbox-new-btn" title="Tạo cuộc trò chuyện mới" @onclick="OpenNewConvModal">＋</button>
+        </div>
+
+        @if (isLoading)
+        {
+            @for (int i = 0; i < 5; i++)
+            {
+                <div class="conversation-skeleton">
+                    <div class="skel-avatar"></div>
+                    <div class="skel-lines">
+                        <div class="skel-line skel-line-title"></div>
+                        <div class="skel-line skel-line-sub"></div>
+                    </div>
+                </div>
+            }
+        }
+        else if (errorMessage != null)
+        {
+            <div class="inbox-error">
+                <span>⚠️</span>
+                <p>@errorMessage</p>
+                <button class="btn-retry" @onclick="LoadInbox">Thử lại</button>
+            </div>
+        }
+        else if (inboxItems == null || !inboxItems.Any())
+        {
+            <div class="inbox-empty">
+                <div class="inbox-empty-icon">💬</div>
+                <p>Chưa có cuộc trò chuyện nào</p>
+                <span>Nhấn <strong>＋</strong> để bắt đầu</span>
+            </div>
+        }
+        else
+        {
+            <div class="conversation-list">
+                @foreach (var item in inboxItems)
+                {
+                    <div class="conversation-item @(selectedId == item.ConversationId ? "active" : "")"
+                         @onclick="() => SelectConversation(item)">
+                        <div class="conv-avatar">@GetInitials(item.Title)</div>
+                        <div class="conv-info">
+                            <div class="conv-top">
+                                <span class="conv-name">@(item.Title ?? "Cuộc trò chuyện")</span>
+                                <span class="conv-time">@FormatTime(item.LastMessageAt)</span>
+                            </div>
+                            <div class="conv-bottom">
+                                <span class="conv-preview">@TruncateMessage(item.LastMessage)</span>
+                                @if (item.UnreadCount > 0)
+                                {
+                                    <span class="conv-badge">@(item.UnreadCount > 99 ? "99+" : item.UnreadCount.ToString())</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- ═══ CỘT PHẢI: VÙNG CHAT ═══ -->
+    <div class="chat-panel">
+        @if (selectedConversation == null)
+        {
+            <div class="chat-placeholder">
+                <div class="placeholder-logo">
+                    <div class="placeholder-logo-s">S</div>
+                    <div class="placeholder-logo-text">STALK</div>
+                </div>
+                <p class="placeholder-title">Chào mừng đến với STALKchat</p>
+                <p class="placeholder-sub">Chọn một cuộc trò chuyện hoặc nhấn <strong>＋</strong> để bắt đầu</p>
+            </div>
+        }
+        else
+        {
+            <div class="chat-header">
+                <div class="chat-header-avatar">@GetInitials(selectedConversation.Title)</div>
+                <div class="chat-header-info">
+                    <div class="chat-header-name">@(selectedConversation.Title ?? "Cuộc trò chuyện")</div>
+                    <div class="chat-header-status">STALKchat</div>
+                </div>
+            </div>
+            <div class="chat-messages-area">
+                <div class="chat-coming-soon">
+                    <span>🚀</span>
+                    <p>Tính năng gửi tin nhắn đang được phát triển</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- ═══ MODAL TẠO CUỘC TRÒ CHUYỆN MỚI ═══ -->
+@if (showNewConvModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Cuộc trò chuyện mới</h3>
+                <button class="modal-close-btn" @onclick="CloseModal">✕</button>
+            </div>
+
+            <!-- Tab chọn loại -->
+            <div class="modal-tabs">
+                <button class="modal-tab @(convType == ConversationType.Direct ? "active" : "")"
+                        @onclick='() => convType = ConversationType.Direct'>
+                    👤 Tin nhắn trực tiếp
+                </button>
+                <button class="modal-tab @(convType == ConversationType.Group ? "active" : "")"
+                        @onclick='() => convType = ConversationType.Group'>
+                    👥 Tạo nhóm
+                </button>
+            </div>
+
+            <div class="modal-body">
+                @if (convType == ConversationType.Direct)
+                {
+                    <!-- Tìm user theo SĐT -->
+                    <div class="modal-form-group">
+                        <label class="modal-label">Tìm theo số điện thoại</label>
+                        <div class="modal-search-row">
+                            <input class="modal-input"
+                                   type="tel"
+                                   placeholder="Nhập số điện thoại..."
+                                   @bind="searchPhone"
+                                   @bind:event="oninput"
+                                   @onkeydown="OnSearchKeyDown" />
+                            <button class="modal-search-btn" @onclick="SearchUser" disabled="@isSearching">
+                                @if (isSearching) { <span class="spinner-sm"></span> } else { <span>Tìm</span> }
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (searchError != null)
+                    {
+                        <div class="modal-error">@searchError</div>
+                    }
+
+                    @if (foundUser != null)
+                    {
+                        <div class="found-user-card">
+                            <div class="found-user-avatar">@GetInitials(foundUser.DisplayName)</div>
+                            <div class="found-user-info">
+                                <div class="found-user-name">@foundUser.DisplayName</div>
+                                <div class="found-user-phone">@foundUser.PhoneNumber</div>
+                            </div>
+                            <span class="found-user-check">✓</span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <!-- Nhóm: tên nhóm + thêm thành viên -->
+                    <div class="modal-form-group">
+                        <label class="modal-label">Tên nhóm <span class="required">*</span></label>
+                        <input class="modal-input" type="text" placeholder="Tên nhóm..." @bind="groupTitle" />
+                    </div>
+
+                    <div class="modal-form-group">
+                        <label class="modal-label">Thêm thành viên theo SĐT</label>
+                        <div class="modal-search-row">
+                            <input class="modal-input"
+                                   type="tel"
+                                   placeholder="Nhập số điện thoại..."
+                                   @bind="searchPhone"
+                                   @bind:event="oninput"
+                                   @onkeydown="OnSearchKeyDown" />
+                            <button class="modal-search-btn" @onclick="SearchUser" disabled="@isSearching">
+                                @if (isSearching) { <span class="spinner-sm"></span> } else { <span>Tìm</span> }
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (searchError != null)
+                    {
+                        <div class="modal-error">@searchError</div>
+                    }
+
+                    @if (foundUser != null)
+                    {
+                        <div class="found-user-card">
+                            <div class="found-user-avatar">@GetInitials(foundUser.DisplayName)</div>
+                            <div class="found-user-info">
+                                <div class="found-user-name">@foundUser.DisplayName</div>
+                                <div class="found-user-phone">@foundUser.PhoneNumber</div>
+                            </div>
+                            <button class="btn-add-member" @onclick="AddMember">Thêm</button>
+                        </div>
+                    }
+
+                    @if (groupMembers.Any())
+                    {
+                        <div class="group-members-list">
+                            <div class="modal-label" style="margin-bottom:8px;">Thành viên (@groupMembers.Count)</div>
+                            @foreach (var m in groupMembers)
+                            {
+                                <div class="group-member-item">
+                                    <div class="found-user-avatar" style="width:32px;height:32px;font-size:.7rem;">@GetInitials(m.DisplayName)</div>
+                                    <span>@m.DisplayName</span>
+                                    <button class="btn-remove-member" @onclick="() => groupMembers.Remove(m)">✕</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+
+            @if (createError != null)
+            {
+                <div class="modal-error" style="margin: 0 20px 12px;">@createError</div>
+            }
+
+            <div class="modal-footer">
+                <button class="modal-cancel-btn" @onclick="CloseModal">Hủy</button>
+                <button class="modal-create-btn"
+                        @onclick="CreateConversation"
+                        disabled="@(isCreating || !CanCreate)">
+                    @if (isCreating) { <span class="spinner-sm"></span> }
+                    <span>Tạo cuộc trò chuyện</span>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ── Inbox state ──────────────────────────────────────────
+    private List<InboxItemDto>? inboxItems;
+    private InboxItemDto? selectedConversation;
+    private Guid selectedId;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private Guid currentUserId;
+
+    // ── Modal state ──────────────────────────────────────────
+    private bool showNewConvModal = false;
+    private ConversationType convType = ConversationType.Direct;
+    private string searchPhone = "";
+    private bool isSearching = false;
+    private string? searchError;
+    private FoundUserDto? foundUser;
+
+    // Group
+    private string groupTitle = "";
+    private List<FoundUserDto> groupMembers = new();
+
+    // Create
+    private bool isCreating = false;
+    private string? createError;
+
+    private bool CanCreate => convType == ConversationType.Direct
+        ? foundUser != null
+        : !string.IsNullOrWhiteSpace(groupTitle) && groupMembers.Any();
+
+    // ─────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var userIdStr = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+            ?? user.FindFirst("sub")?.Value 
+            ?? user.FindFirst("nameid")?.Value;
+        if (!Guid.TryParse(userIdStr, out currentUserId))
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        await LoadInbox();
+    }
+
+    private async Task LoadInbox()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            inboxItems = await Http.GetFromJsonAsync<List<InboxItemDto>>(
+                $"/api/conversations/inbox/{currentUserId}");
+        }
+        catch
+        {
+            errorMessage = "Không thể tải danh sách tin nhắn.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectConversation(InboxItemDto item)
+    {
+        selectedConversation = item;
+        selectedId = item.ConversationId;
+    }
+
+    // ── Modal ────────────────────────────────────────────────
+    private void OpenNewConvModal()
+    {
+        showNewConvModal = true;
+        convType = ConversationType.Direct;
+        searchPhone = "";
+        foundUser = null;
+        searchError = null;
+        groupTitle = "";
+        groupMembers = new();
+        createError = null;
+    }
+
+    private void CloseModal() => showNewConvModal = false;
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchUser();
+    }
+
+    private async Task SearchUser()
+    {
+        if (string.IsNullOrWhiteSpace(searchPhone)) return;
+        isSearching = true;
+        searchError = null;
+        foundUser = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.GetAsync($"/api/users/search?phone={Uri.EscapeDataString(searchPhone.Trim())}");
+            if (resp.IsSuccessStatusCode)
+            {
+                foundUser = await resp.Content.ReadFromJsonAsync<FoundUserDto>();
+            }
+            else
+            {
+                searchError = "Không tìm thấy người dùng với số điện thoại này.";
+            }
+        }
+        catch
+        {
+            searchError = "Lỗi kết nối. Vui lòng thử lại.";
+        }
+        finally
+        {
+            isSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AddMember()
+    {
+        if (foundUser == null) return;
+        if (foundUser.Id == currentUserId) { searchError = "Không thể thêm chính bạn."; return; }
+        if (groupMembers.Any(m => m.Id == foundUser.Id)) { searchError = "Người này đã được thêm."; return; }
+        groupMembers.Add(foundUser);
+        foundUser = null;
+        searchPhone = "";
+        searchError = null;
+    }
+
+    private async Task CreateConversation()
+    {
+        isCreating = true;
+        createError = null;
+        StateHasChanged();
+        try
+        {
+            List<Guid> participantIds;
+            string? title;
+
+            if (convType == ConversationType.Direct)
+            {
+                participantIds = new List<Guid> { foundUser!.Id };
+                title = foundUser.DisplayName;
+            }
+            else
+            {
+                participantIds = groupMembers.Select(m => m.Id).ToList();
+                title = groupTitle.Trim();
+            }
+
+            var body = new
+            {
+                CreatorId = currentUserId,
+                Title = title,
+                Type = (int)convType,
+                ParticipantIds = participantIds
+            };
+
+            var resp = await Http.PostAsJsonAsync("/api/conversations", body);
+            if (resp.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadInbox();
+            }
+            else
+            {
+                createError = "Không thể tạo cuộc trò chuyện. Vui lòng thử lại.";
+            }
+        }
+        catch
+        {
+            createError = "Lỗi kết nối. Vui lòng thử lại.";
+        }
+        finally
+        {
+            isCreating = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+    private string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        return name.Length >= 2 ? name[..2].ToUpper() : name.ToUpper();
+    }
+
+    private string FormatTime(DateTime? dt)
+    {
+        if (dt == null) return "";
+        var local = dt.Value.ToLocalTime();
+        var now = DateTime.Now;
+        if (local.Date == now.Date) return local.ToString("HH:mm");
+        if (local.Date == now.Date.AddDays(-1)) return "Hôm qua";
+        return local.ToString("dd/MM");
+    }
+
+    private string TruncateMessage(string? msg)
+    {
+        if (string.IsNullOrEmpty(msg)) return "";
+        return msg.Length > 40 ? msg[..40] + "..." : msg;
+    }
+
+    // ── DTOs nội bộ ──────────────────────────────────────────
+    private class FoundUserDto
+    {
+        public Guid Id { get; set; }
+        public string DisplayName { get; set; } = "";
+        public string? Username { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? AvatarUrl { get; set; }
+    }
+}
