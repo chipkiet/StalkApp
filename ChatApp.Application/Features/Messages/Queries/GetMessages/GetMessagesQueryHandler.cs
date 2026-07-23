@@ -31,8 +31,21 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
         var messageList = messages.OrderByDescending(m => m.CreatedAt).Take(request.Count).ToList();
 
         var messageIds = messageList.Select(m => m.Id).ToList();
+        var replyIds = messageList
+            .Where(m => m.ReplyToMessageId.HasValue)
+            .Select(m => m.ReplyToMessageId!.Value)
+            .Distinct()
+            .ToList();
+
         var attachments = await _attachmentRepository.FindAsync(a => messageIds.Contains(a.MessageId));
         var reactions = await _reactionRepository.FindAsync(r => messageIds.Contains(r.MessageId));
+
+        var replyMessages = replyIds.Count == 0
+            ? new List<Message>()
+            : (await _messageRepository.FindAsync(m => replyIds.Contains(m.Id))).ToList();
+        var replyAttachments = replyIds.Count == 0
+            ? new List<Attachment>()
+            : (await _attachmentRepository.FindAsync(a => replyIds.Contains(a.MessageId))).ToList();
 
         var result = messageList.Select(m =>
         {
@@ -41,6 +54,23 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
                 .Where(r => r.MessageId == m.Id)
                 .Select(r => new ReactionDto(r.UserId, r.Emotion))
                 .ToList();
+
+            ReplyPreviewDto? replyTo = null;
+            if (m.ReplyToMessageId.HasValue)
+            {
+                var replied = replyMessages.FirstOrDefault(r => r.Id == m.ReplyToMessageId.Value);
+                if (replied is not null)
+                {
+                    var repliedAtt = replyAttachments.FirstOrDefault(a => a.MessageId == replied.Id);
+                    replyTo = new ReplyPreviewDto(
+                        replied.Id,
+                        replied.SenderId,
+                        replied.IsDeleted ? null : replied.Content,
+                        replied.IsDeleted,
+                        replied.IsDeleted ? null : repliedAtt?.FileName
+                    );
+                }
+            }
 
             return new MessageDto(
                 m.Id,
@@ -54,7 +84,11 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
                 m.IsPinned,
                 m.IsDeleted,
                 m.UpdatedAt,
-                messageReactions
+                messageReactions,
+                m.ReplyToMessageId,
+                replyTo,
+                m.ForwardedFromMessageId,
+                m.ForwardedFromMessageId.HasValue
             );
         }).ToList();
 

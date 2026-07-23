@@ -72,12 +72,28 @@
             padding: 12px 14px; font-size: .95rem; outline: none; margin-bottom: 14px;
         }
         .login-box input:focus { border-color: var(--zalo-blue); box-shadow: 0 0 0 3px rgba(0,104,255,.12); }
-        .login-box button {
+        .login-box input:focus { border-color: var(--zalo-blue); box-shadow: 0 0 0 3px rgba(0,104,255,.12); }
+        .login-box button.primary {
             width: 100%; border: none; border-radius: 10px; padding: 12px;
             background: var(--zalo-blue); color: #fff; font-weight: 600; font-size: .95rem; cursor: pointer;
         }
-        .login-box button:hover { filter: brightness(1.05); }
+        .login-box button.primary:hover { filter: brightness(1.05); }
         #loginError { color: #e11d48; font-size: .85rem; margin-top: 12px; display: none; }
+        .demo-users { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; text-align: left; }
+        .demo-user-btn {
+            width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px;
+            border: 1px solid var(--border); border-radius: 12px; background: #fff; cursor: pointer; text-align: left;
+        }
+        .demo-user-btn:hover { border-color: var(--zalo-blue); background: var(--zalo-blue-soft); }
+        .demo-user-btn .avatar { width: 40px; height: 40px; margin: 0; font-size: .95rem; }
+        .demo-user-btn strong { display: block; font-size: .92rem; color: var(--text); }
+        .demo-user-btn span { font-size: .75rem; color: var(--muted); }
+        .toast {
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: #081c36; color: #fff; padding: 10px 16px; border-radius: 999px;
+            font-size: .85rem; z-index: 3000; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+        }
+        .toast.show { display: block; }
 
         /* ===== LEFT NAV (Zalo style) ===== */
         .nav-rail {
@@ -267,11 +283,44 @@
             border-radius: 8px; padding: 8px 10px; text-decoration: none; color: var(--zalo-blue);
             font-size: .88rem; margin-bottom: 4px;
         }
+        .reply-quote {
+            border-left: 3px solid var(--zalo-blue); background: rgba(0,104,255,.06);
+            border-radius: 0 8px 8px 0; padding: 6px 8px; margin-bottom: 6px; font-size: .8rem;
+        }
+        .reply-quote .label { color: var(--zalo-blue); font-weight: 600; display: block; margin-bottom: 2px; }
+        .reply-quote .snip { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+        .forward-tag { font-size: .75rem; color: var(--muted); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
 
         /* ===== INPUT (Zalo style) ===== */
         .composer {
             background: #fff; border-top: 1px solid var(--border); flex-shrink: 0;
         }
+        .reply-banner {
+            display: none; align-items: center; gap: 10px; padding: 10px 14px 0;
+            border-left: 3px solid var(--zalo-blue); margin: 8px 14px 0; background: #f7f9fc; border-radius: 0 8px 8px 0;
+        }
+        .reply-banner.show { display: flex; }
+        .reply-banner .info { flex: 1; min-width: 0; }
+        .reply-banner .info strong { color: var(--zalo-blue); font-size: .82rem; }
+        .reply-banner .info p { margin: 2px 0 0; font-size: .8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .reply-banner button { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 6px; }
+
+        .modal-backdrop {
+            display: none; position: absolute; inset: 0; background: rgba(8,28,54,.35); z-index: 1500;
+            align-items: center; justify-content: center;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal-card {
+            width: min(420px, 92%); background: #fff; border-radius: 14px; overflow: hidden;
+            box-shadow: 0 16px 40px rgba(0,0,0,.18);
+        }
+        .modal-card header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 650;
+        }
+        .modal-card header button { border: none; background: transparent; cursor: pointer; color: var(--muted); font-size: 1rem; }
+        .modal-list { max-height: 360px; overflow-y: auto; }
+        .modal-list .chat-item { border-bottom: 1px solid #f3f4f6; }
         .composer-toolbar {
             display: flex; align-items: center; gap: 2px; padding: 8px 12px 0;
         }
@@ -353,20 +402,25 @@
             <div class="login-box">
                 <div class="login-logo">S</div>
                 <h2>STALK</h2>
-                <p>Đăng nhập để tiếp tục trò chuyện</p>
-                <input type="text" id="senderId" placeholder="Nhập User ID (Thiên / AE Chill)">
-                <button id="btnConnect">Đăng nhập</button>
+                <p>Chọn tài khoản demo để vào chat</p>
+                <div class="demo-users" id="demoUsers">
+                    <div style="color:#7589a3;font-size:.85rem;text-align:center">Đang tải tài khoản...</div>
+                </div>
+                <input type="text" id="senderId" placeholder="Hoặc dán User ID thủ công">
+                <button class="primary" id="btnConnect">Đăng nhập</button>
                 <div id="loginError"></div>
             </div>
         </div>
 
+        <div class="toast" id="toast"></div>
+
         <aside class="nav-rail">
             <div class="nav-avatar" id="navAvatar">U</div>
-            <div class="nav-item active" title="Tin nhắn"><i class="fa-solid fa-comment"></i></div>
-            <div class="nav-item" title="Danh bạ"><i class="fa-solid fa-address-book"></i></div>
-            <div class="nav-item" title="Công việc"><i class="fa-solid fa-square-check"></i></div>
+            <div class="nav-item active" data-nav="chat" title="Tin nhắn"><i class="fa-solid fa-comment"></i></div>
+            <div class="nav-item" data-nav="contacts" title="Danh bạ"><i class="fa-solid fa-address-book"></i></div>
+            <div class="nav-item" data-nav="todo" title="Công việc"><i class="fa-solid fa-square-check"></i></div>
             <div class="nav-spacer"></div>
-            <div class="nav-item" title="Cài đặt"><i class="fa-solid fa-gear"></i></div>
+            <div class="nav-item" data-nav="settings" title="Cài đặt"><i class="fa-solid fa-gear"></i></div>
         </aside>
 
         <aside class="sidebar">
@@ -374,8 +428,8 @@
                 <div class="sidebar-title">
                     <h1>Chat</h1>
                     <div class="tools">
-                        <i class="fa-solid fa-user-plus" title="Thêm bạn"></i>
-                        <i class="fa-solid fa-pen-to-square" title="Tạo nhóm"></i>
+                        <i class="fa-solid fa-user-plus" id="btnAddFriend" title="Thêm bạn"></i>
+                        <i class="fa-solid fa-pen-to-square" id="btnCreateGroup" title="Tạo nhóm"></i>
                     </div>
                 </div>
                 <div class="search-wrap">
@@ -411,6 +465,13 @@
                 <div class="chat-messages" id="messagesList"></div>
 
                 <div class="composer">
+                    <div class="reply-banner" id="replyBanner">
+                        <div class="info">
+                            <strong id="replyBannerTitle">Trả lời</strong>
+                            <p id="replyBannerText"></p>
+                        </div>
+                        <button type="button" id="btnCancelReply" title="Hủy"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                     <div class="composer-toolbar">
                         <button type="button" title="Sticker"><i class="fa-regular fa-face-smile"></i></button>
                         <button type="button" id="btnImage" title="Hình ảnh"><i class="fa-regular fa-image"></i></button>
@@ -433,6 +494,16 @@
                 </div>
             </div>
         </main>
+
+        <div class="modal-backdrop" id="forwardModal">
+            <div class="modal-card">
+                <header>
+                    <span>Chuyển tiếp tới...</span>
+                    <button type="button" id="btnCloseForward"><i class="fa-solid fa-xmark"></i></button>
+                </header>
+                <div class="modal-list" id="forwardChatList"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -441,6 +512,10 @@
     const connection = new signalR.HubConnectionBuilder().withUrl("/chathub").build();
     let currentUserId = "";
     let currentConversationId = "";
+    let replyToMessageId = null;
+    let replyPreviewCache = {};
+    let forwardSourceMessageId = null;
+    let inboxCache = [];
     let currentCallId = null;
     let localStream = null;
     let peerConnection = null;
@@ -475,6 +550,72 @@
     const callIcon = document.getElementById("callIcon");
     const localVideo = document.getElementById("localVideo");
     const remoteVideo = document.getElementById("remoteVideo");
+    const replyBanner = document.getElementById("replyBanner");
+    const replyBannerText = document.getElementById("replyBannerText");
+    const forwardModal = document.getElementById("forwardModal");
+    const forwardChatList = document.getElementById("forwardChatList");
+    const toastEl = document.getElementById("toast");
+    const demoUsersEl = document.getElementById("demoUsers");
+
+    function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add("show");
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => toastEl.classList.remove("show"), 2200);
+    }
+
+    async function loadDemoUsers() {
+        try {
+            const res = await fetch("/api/users/demo");
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const users = await res.json();
+            if (!users.length) {
+                demoUsersEl.innerHTML = `<div style="color:#e11d48;font-size:.85rem;text-align:center">Chưa có user demo. Restart server để seed lại.</div>`;
+                return;
+            }
+            demoUsersEl.innerHTML = "";
+            users.forEach(u => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "demo-user-btn";
+                btn.innerHTML = `
+                    <div class="avatar">${escapeHtml((u.displayName || "?")[0].toUpperCase())}</div>
+                    <div>
+                        <strong>${escapeHtml(u.displayName || u.username)}</strong>
+                        <span>@${escapeHtml(u.username || "")}</span>
+                    </div>`;
+                btn.onclick = () => loginAs(u.id, u.displayName);
+                demoUsersEl.appendChild(btn);
+            });
+        } catch (err) {
+            demoUsersEl.innerHTML = `<div style="color:#e11d48;font-size:.85rem;text-align:center">Không tải được user demo: ${escapeHtml(String(err))}</div>`;
+        }
+    }
+
+    async function loginAs(userId, displayName) {
+        currentUserId = userId;
+        document.getElementById("navAvatar").textContent = ((displayName || userId)[0] || "U").toUpperCase();
+        loginError.style.display = "none";
+        try {
+            if (connection.state !== signalR.HubConnectionState.Connected) {
+                await connection.start();
+            }
+            loginOverlay.style.opacity = "0";
+            setTimeout(() => loginOverlay.style.display = "none", 250);
+            mainChatArea.classList.add("visible");
+            emptyState.style.display = "flex";
+            chatActive.style.display = "none";
+            const chats = await loadInbox();
+            if (chats.length) {
+                await selectChat(chats[0].conversationId, chats[0].title);
+            } else {
+                showToast("Chưa có hội thoại cho tài khoản này");
+            }
+        } catch (err) {
+            loginError.innerText = "Lỗi kết nối SignalR: " + err;
+            loginError.style.display = "block";
+        }
+    }
 
     function formatTime(date) {
         return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -507,13 +648,30 @@
     connection.on("MessageDeleted", (dto) => { if (dto.conversationId === currentConversationId) upsertMessage(dto); });
     connection.on("MessagePinned", (dto) => { if (dto.conversationId === currentConversationId) upsertMessage(dto); });
     connection.on("MessageReactionUpdated", (dto) => { if (dto.conversationId === currentConversationId) upsertMessage(dto); });
+    connection.on("MessageForwarded", (dto) => {
+        alert("Đã chuyển tiếp tin nhắn.");
+        if (dto.conversationId === currentConversationId) upsertMessage(dto);
+    });
     connection.on("ErrorMessage", (msg) => alert(msg));
 
     function closeAllMenus() {
         document.querySelectorAll(".more-menu.open").forEach(m => m.classList.remove("open"));
     }
 
+    function clearReply() {
+        replyToMessageId = null;
+        replyBanner.classList.remove("show");
+        replyBannerText.textContent = "";
+    }
+
+    function previewText(dto) {
+        if (dto.isDeleted) return "Tin nhắn đã được thu hồi";
+        if (dto.attachmentName) return dto.attachmentName;
+        return dto.content || "";
+    }
+
     function upsertMessage(dto) {
+        replyPreviewCache[dto.id] = dto;
         const existing = document.querySelector(`[data-message-id="${dto.id}"]`);
         const isMe = dto.senderId === currentUserId;
         const row = document.createElement("div");
@@ -534,6 +692,18 @@
                     ? `<img src="${escapeHtml(dto.attachmentUrl)}" class="attachment-img" alt="image" onclick="window.open('${escapeHtml(dto.attachmentUrl)}','_blank')">`
                     : `<a class="file-chip" href="${escapeHtml(dto.attachmentUrl)}" target="_blank"><i class="fa-solid fa-file"></i>${escapeHtml(dto.attachmentName || "Tải file")}</a>`;
             }
+
+            let replyHtml = "";
+            if (dto.replyTo) {
+                const snip = dto.replyTo.isDeleted
+                    ? "Tin nhắn đã được thu hồi"
+                    : (dto.replyTo.content || dto.replyTo.attachmentName || "");
+                replyHtml = `<div class="reply-quote"><span class="label">Trả lời</span><div class="snip">${escapeHtml(snip)}</div></div>`;
+            }
+
+            const forwardHtml = dto.isForwarded
+                ? `<div class="forward-tag"><i class="fa-solid fa-share"></i> Đã chuyển tiếp</div>`
+                : "";
 
             const reactions = dto.reactions || [];
             const reactionHtml = reactions.length
@@ -559,12 +729,14 @@
             row.innerHTML = `
                 <div class="msg-wrap">
                     <div class="msg-actions">
-                        <button type="button" title="Trả lời" onclick="alert('Reply sẽ có ở Phase 2')"><i class="fa-solid fa-quote-left"></i></button>
-                        <button type="button" title="Chuyển tiếp" onclick="alert('Forward sẽ có ở Phase 2')"><i class="fa-solid fa-share"></i></button>
+                        <button type="button" title="Trả lời" onclick="startReply('${dto.id}')"><i class="fa-solid fa-quote-left"></i></button>
+                        <button type="button" title="Chuyển tiếp" onclick="openForward('${dto.id}')"><i class="fa-solid fa-share"></i></button>
                         <button type="button" title="Thêm" onclick="toggleMore(event, '${dto.id}')"><i class="fa-solid fa-ellipsis"></i></button>
                         <div class="more-menu" id="menu-${dto.id}">${moreItems}</div>
                     </div>
                     <div class="bubble">
+                        ${forwardHtml}
+                        ${replyHtml}
                         ${mediaHtml}
                         ${escapeHtml(dto.content || "")}
                     </div>
@@ -605,52 +777,133 @@
         await connection.invoke("AddReaction", { messageId: id, userId: currentUserId, emotion });
     };
 
-    document.getElementById("btnConnect").addEventListener("click", async () => {
-        const userId = senderIdInput.value.trim();
-        if (!userId) {
-            loginError.innerText = "Vui lòng nhập User ID!";
-            loginError.style.display = "block";
-            return;
+    window.startReply = function (id) {
+        const dto = replyPreviewCache[id];
+        if (!dto || dto.isDeleted) return;
+        replyToMessageId = id;
+        replyBannerText.textContent = previewText(dto);
+        replyBanner.classList.add("show");
+        txtMessage.focus();
+    };
+
+    window.openForward = async function (id) {
+        const dto = replyPreviewCache[id];
+        if (!dto || dto.isDeleted) return;
+        forwardSourceMessageId = id;
+        if (!inboxCache.length) await loadInbox();
+        forwardChatList.innerHTML = "";
+        inboxCache
+            .filter(c => c.conversationId !== currentConversationId)
+            .forEach(chat => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "chat-item";
+                btn.innerHTML = `
+                    <div class="avatar"><i class="fa-solid ${chat.type === 1 ? "fa-user-group" : "fa-user"}"></i></div>
+                    <div class="chat-item-info">
+                        <div class="chat-item-top"><h6>${escapeHtml(chat.title || "Chat")}</h6></div>
+                        <p>${escapeHtml(chat.lastMessage || "")}</p>
+                    </div>`;
+                btn.onclick = () => forwardTo(chat.conversationId);
+                forwardChatList.appendChild(btn);
+            });
+        if (!forwardChatList.children.length) {
+            forwardChatList.innerHTML = `<div style="padding:20px;color:#7589a3;text-align:center">Không có hội thoại khác để chuyển tiếp.</div>`;
         }
-        currentUserId = userId;
-        document.getElementById("navAvatar").textContent = (userId[0] || "U").toUpperCase();
-        try {
-            await connection.start();
-            loadInbox();
-            loginOverlay.style.opacity = "0";
-            setTimeout(() => loginOverlay.style.display = "none", 250);
-        } catch (err) {
-            loginError.innerText = "Lỗi kết nối SignalR: " + err;
-            loginError.style.display = "block";
+        forwardModal.classList.add("show");
+    };
+
+    async function forwardTo(targetConversationId) {
+        if (!forwardSourceMessageId) return;
+        await connection.invoke("ForwardMessage", {
+            messageId: forwardSourceMessageId,
+            senderId: currentUserId,
+            targetConversationId
+        });
+        forwardModal.classList.remove("show");
+        forwardSourceMessageId = null;
+    }
+
+    document.getElementById("btnCancelReply").addEventListener("click", clearReply);
+    document.getElementById("btnCloseForward").addEventListener("click", () => {
+        forwardModal.classList.remove("show");
+        forwardSourceMessageId = null;
+    });
+    forwardModal.addEventListener("click", (e) => {
+        if (e.target === forwardModal) {
+            forwardModal.classList.remove("show");
+            forwardSourceMessageId = null;
         }
     });
 
-    async function loadInbox() {
-        const res = await fetch(`/api/conversations/inbox/${currentUserId}`);
-        const data = await res.json();
-        chatList.innerHTML = "";
-        data.forEach(chat => {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = `chat-item ${chat.conversationId === currentConversationId ? "active" : ""}`;
-            btn.innerHTML = `
-                <div class="avatar"><i class="fa-solid ${chat.type === 1 ? "fa-user-group" : "fa-user"}"></i></div>
-                <div class="chat-item-info">
-                    <div class="chat-item-top">
-                        <h6>${escapeHtml(chat.title || "Chat")}</h6>
-                        <span class="chat-time"></span>
-                    </div>
-                    <p>${escapeHtml(chat.lastMessage || "")}</p>
-                </div>`;
-            btn.onclick = () => selectChat(chat.conversationId, chat.title);
-            chatList.appendChild(btn);
+    document.getElementById("btnConnect").addEventListener("click", async () => {
+        const userId = senderIdInput.value.trim();
+        if (!userId) {
+            loginError.innerText = "Chọn tài khoản demo hoặc nhập User ID!";
+            loginError.style.display = "block";
+            return;
+        }
+        await loginAs(userId, userId);
+    });
+
+    document.querySelectorAll(".nav-item").forEach(item => {
+        item.addEventListener("click", () => {
+            const key = item.dataset.nav;
+            if (key === "chat") {
+                document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+                item.classList.add("active");
+                return;
+            }
+            showToast("Tính năng này sẽ làm ở phase sau");
         });
+    });
+    document.getElementById("btnAddFriend")?.addEventListener("click", () => showToast("Thêm bạn — chưa làm (Auth/Contact)"));
+    document.getElementById("btnCreateGroup")?.addEventListener("click", () => showToast("Tạo nhóm — sẽ làm ở Phase 3"));
+
+    loadDemoUsers();
+
+    async function loadInbox() {
+        if (!currentUserId) return [];
+        try {
+            const res = await fetch(`/api/conversations/inbox/${currentUserId}`);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            inboxCache = data;
+            chatList.innerHTML = "";
+            if (!data.length) {
+                chatList.innerHTML = `<div style="padding:24px 16px;color:#7589a3;text-align:center;font-size:.88rem">Chưa có cuộc trò chuyện</div>`;
+                return data;
+            }
+            data.forEach(chat => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = `chat-item ${chat.conversationId === currentConversationId ? "active" : ""}`;
+                btn.innerHTML = `
+                    <div class="avatar"><i class="fa-solid ${chat.type === 1 ? "fa-user-group" : "fa-user"}"></i></div>
+                    <div class="chat-item-info">
+                        <div class="chat-item-top">
+                            <h6>${escapeHtml(chat.title || "Chat")}</h6>
+                            <span class="chat-time"></span>
+                        </div>
+                        <p>${escapeHtml(chat.lastMessage || "")}</p>
+                    </div>`;
+                btn.onclick = () => selectChat(chat.conversationId, chat.title);
+                chatList.appendChild(btn);
+            });
+            return data;
+        } catch (err) {
+            chatList.innerHTML = `<div style="padding:24px 16px;color:#e11d48;text-align:center;font-size:.88rem">Lỗi tải inbox</div>`;
+            showToast("Không tải được danh sách chat");
+            return [];
+        }
     }
 
     async function selectChat(convId, title) {
         currentConversationId = convId;
         currentChatTitle.innerText = title || "Trò chuyện";
         txtMessage.placeholder = `Nhập @, tin nhắn tới ${title || "hội thoại"}`;
+        clearReply();
+        replyPreviewCache = {};
         mainChatArea.classList.add("visible");
         emptyState.style.display = "none";
         chatActive.style.display = "flex";
@@ -668,14 +921,17 @@
         formData.append("file", file);
         const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
         const data = await res.json();
-        await connection.invoke("SendMessage", {
+        const command = {
             conversationId: currentConversationId,
             senderId: currentUserId,
             messageType,
             content: messageType === 2 ? "Đã gửi một hình ảnh" : "Đã gửi một file đính kèm",
             attachmentUrl: data.url,
             attachmentName: data.originalName
-        });
+        };
+        if (replyToMessageId) command.replyToMessageId = replyToMessageId;
+        await connection.invoke("SendMessage", command);
+        clearReply();
     }
 
     btnAttach.addEventListener("click", () => fileInput.click());
@@ -693,13 +949,16 @@
 
     async function sendText(content) {
         if (!content || !currentConversationId) return;
-        await connection.invoke("SendMessage", {
+        const command = {
             conversationId: currentConversationId,
             senderId: currentUserId,
             messageType: 0,
             content
-        });
+        };
+        if (replyToMessageId) command.replyToMessageId = replyToMessageId;
+        await connection.invoke("SendMessage", command);
         txtMessage.value = "";
+        clearReply();
         updateComposerMode();
     }
 

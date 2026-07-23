@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using ChatApp.Application.Features.Messages.Commands.AddReaction;
 using ChatApp.Application.Features.Messages.Commands.DeleteMessage;
 using ChatApp.Application.Features.Messages.Commands.EditMessage;
+using ChatApp.Application.Features.Messages.Commands.ForwardMessage;
 using ChatApp.Application.Features.Messages.Commands.PinMessage;
 using ChatApp.Application.Features.Messages.Commands.RemoveReaction;
 using ChatApp.Application.Features.Messages.Queries.GetMessages;
@@ -87,8 +88,21 @@ public class MessagesController : ControllerBase
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
+
+    [HttpPost("{messageId}/forward")]
+    public async Task<IActionResult> ForwardMessage(Guid messageId, [FromBody] ForwardMessageRequest body)
+    {
+        try
+        {
+            var result = await _mediator.Send(new ForwardMessageCommand(messageId, body.UserId, body.TargetConversationId));
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
 }
 
 public record EditMessageRequest(Guid UserId, string NewContent);
 public record PinMessageRequest(Guid UserId, bool IsPinned);
 public record AddReactionRequest(Guid UserId, string Emotion);
+public record ForwardMessageRequest(Guid UserId, Guid TargetConversationId);

@@ -13,5 +13,6 @@ public record SendMessageCommand(
     string? AttachmentUrl = null,
     string? AttachmentName = null,
     string? AttachmentContentType = null,
-    long? AttachmentSize = null
+    long? AttachmentSize = null,
+    Guid? ReplyToMessageId = null
 ) : IRequest<MessageDto>;
