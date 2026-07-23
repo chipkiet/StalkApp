@@ -6,6 +6,10 @@ using ChatApp.Domain.Entities;
 using ChatApp.Shared.DTOs.Users;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using System.Linq;
+using System.Threading.Tasks;
+using ChatApp.Application.Interfaces.Repositories;
+using ChatApp.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatApp.WebApi.Controllers;
@@ -162,4 +166,7 @@ public class UsersController : ControllerBase
             avatarUrl = user.AvatarUrl
         });
     }
+
+    /// <summary>Demo accounts
+
 }

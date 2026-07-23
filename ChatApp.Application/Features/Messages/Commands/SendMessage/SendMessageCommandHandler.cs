@@ -15,7 +15,7 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
     private readonly IUnitOfWork _unitOfWork;
 
     public SendMessageCommandHandler(
-        IGenericRepository<Message> messageRepository, 
+        IGenericRepository<Message> messageRepository,
         IGenericRepository<Attachment> attachmentRepository,
         IUnitOfWork unitOfWork)
     {
@@ -26,7 +26,15 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
 
     public async Task<MessageDto> Handle(SendMessageCommand request, CancellationToken cancellationToken)
     {
-        // 1. Khởi tạo Entity Message
+        if (request.ReplyToMessageId.HasValue)
+        {
+            var replyTarget = await _messageRepository.GetByIdAsync(request.ReplyToMessageId.Value)
+                ?? throw new InvalidOperationException("Reply target message not found.");
+
+            if (replyTarget.ConversationId != request.ConversationId)
+                throw new InvalidOperationException("Can only reply to a message in the same conversation.");
+        }
+
         var message = new Message
         {
             Id = Guid.NewGuid(),
@@ -34,15 +42,14 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             SenderId = request.SenderId,
             MessageType = request.MessageType,
             Content = request.Content,
+            ReplyToMessageId = request.ReplyToMessageId,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false,
             IsPinned = false
         };
 
-        // 2. Thêm vào Repository
         await _messageRepository.AddAsync(message);
 
-        // 3. Nếu có đính kèm
         if (!string.IsNullOrEmpty(request.AttachmentUrl))
         {
             var attachment = new Attachment
@@ -57,19 +64,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             await _attachmentRepository.AddAsync(attachment);
         }
 
-        // 4. SaveChanges (thực thi lưu DB qua UnitOfWork)
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 5. Trả về Dto
-        return new MessageDto(
-            message.Id,
-            message.ConversationId,
-            message.SenderId,
-            message.MessageType,
-            message.Content,
-            message.CreatedAt,
-            request.AttachmentUrl,
-            request.AttachmentName
-        );
+        return await MessageDtoMapper.ToDtoAsync(message, _attachmentRepository, messageRepository: _messageRepository);
     }
 }

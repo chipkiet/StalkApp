@@ -3,6 +3,12 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using ChatApp.Application.DTOs.Messages;
 using ChatApp.Application.Features.Auth.Commands.ApproveQrSession;
+using ChatApp.Application.Features.Messages.Commands.AddReaction;
+using ChatApp.Application.Features.Messages.Commands.DeleteMessage;
+using ChatApp.Application.Features.Messages.Commands.EditMessage;
+using ChatApp.Application.Features.Messages.Commands.ForwardMessage;
+using ChatApp.Application.Features.Messages.Commands.PinMessage;
+using ChatApp.Application.Features.Messages.Commands.RemoveReaction;
 using ChatApp.Application.Features.Messages.Commands.SendMessage;
 using ChatApp.Application.Interfaces.Repositories;
 using ChatApp.Application.Interfaces.Services;
@@ -160,6 +166,92 @@ public class ChatHub : Hub
             await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
         }
     }
+
+    public async Task ForwardMessage(ForwardMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("ReceiveNewMessage", dto);
+            await Clients.Caller.SendAsync("MessageForwarded", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task EditMessage(EditMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageEdited", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task DeleteMessage(DeleteMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageDeleted", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task PinMessage(PinMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessagePinned", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task AddReaction(AddReactionCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageReactionUpdated", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task RemoveReaction(RemoveReactionCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageReactionUpdated", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
 
     // ─── Call Signaling (WebRTC) ─────────────────────────────────────────────
     public async Task InitiateCall(ChatApp.Application.Features.Calls.Commands.CreateCall.CreateCallCommand command)
