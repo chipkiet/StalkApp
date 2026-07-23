@@ -26,6 +26,7 @@ public class ChatHub : Hub
     private readonly IMediator _mediator;
     private readonly IPresenceTracker _presenceTracker;
     private readonly IGenericRepository<User> _userRepository;
+    private readonly IGenericRepository<Participant> _participantRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMemoryCache _cache;
 
@@ -33,12 +34,14 @@ public class ChatHub : Hub
         IMediator mediator,
         IPresenceTracker presenceTracker,
         IGenericRepository<User> userRepository,
+        IGenericRepository<Participant> participantRepository,
         IUnitOfWork unitOfWork,
         IMemoryCache cache)
     {
         _mediator = mediator;
         _presenceTracker = presenceTracker;
         _userRepository = userRepository;
+        _participantRepository = participantRepository;
         _unitOfWork = unitOfWork;
         _cache = cache;
     }
@@ -61,6 +64,9 @@ public class ChatHub : Hub
             await base.OnConnectedAsync();
             return;
         }
+
+        // ← Thêm vào user-group riêng để nhận IncomingCall dù chưa vào conversation room
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
 
         // Đăng ký connection, nếu đây là kết nối đầu tiên → User vừa Online
         var justCameOnline = await _presenceTracker.UserConnectedAsync(userId, Context.ConnectionId);
@@ -263,8 +269,20 @@ public class ChatHub : Hub
             await _mediator.Send(createCmd);
 
             await Clients.Caller.SendAsync("CallInitiated", callId);
+
+            // Gửi IncomingCall qua conversation group (nếu đã join)
             await Clients.OthersInGroup(command.ConversationId.ToString())
-                .SendAsync("IncomingCall", new { callId, command.ConversationId, command.CallerId, command.Type });
+                .SendAsync("IncomingCall", callId, command.ConversationId, command.CallerId, (int)command.Type);
+
+            // ← QUAN TRỌNG: Cũng gửi qua user-group riêng của từng participant
+            // để đảm bảo họ nhận được dù chưa mở conversation đó
+            var participants = await _participantRepository.FindAsync(p => p.ConversationId == command.ConversationId && p.UserId != command.CallerId);
+
+            foreach (var participant in participants)
+            {
+                await Clients.Group($"user_{participant.UserId}")
+                    .SendAsync("IncomingCall", callId, command.ConversationId, command.CallerId, (int)command.Type);
+            }
         }
         catch (Exception ex) { await Clients.Caller.SendAsync("ErrorMessage", ex.Message); }
     }
@@ -279,12 +297,30 @@ public class ChatHub : Hub
     {
         await _mediator.Send(new ChatApp.Application.Features.Calls.Commands.UpdateCallStatus.UpdateCallStatusCommand(callId, ChatApp.Domain.Enums.CallStatus.Rejected));
         await Clients.OthersInGroup(conversationId).SendAsync("CallRejected", callId);
+
+        var msgCmd = new SendMessageCommand(
+            Guid.Parse(conversationId),
+            GetCurrentUserId(),
+            ChatApp.Domain.Enums.MessageType.CallMissed,
+            "Cuộc gọi bị từ chối."
+        );
+        var dto = await _mediator.Send(msgCmd);
+        await Clients.Group(conversationId).SendAsync("ReceiveNewMessage", dto);
     }
 
     public async Task EndCall(Guid callId, string conversationId)
     {
         await _mediator.Send(new ChatApp.Application.Features.Calls.Commands.UpdateCallStatus.UpdateCallStatusCommand(callId, ChatApp.Domain.Enums.CallStatus.Ended));
         await Clients.OthersInGroup(conversationId).SendAsync("CallEnded", callId);
+
+        var msgCmd = new SendMessageCommand(
+            Guid.Parse(conversationId),
+            GetCurrentUserId(),
+            ChatApp.Domain.Enums.MessageType.CallEnded,
+            "Cuộc gọi đã kết thúc."
+        );
+        var dto = await _mediator.Send(msgCmd);
+        await Clients.Group(conversationId).SendAsync("ReceiveNewMessage", dto);
     }
 
     public async Task SendWebRTCSignal(string conversationId, string payload)

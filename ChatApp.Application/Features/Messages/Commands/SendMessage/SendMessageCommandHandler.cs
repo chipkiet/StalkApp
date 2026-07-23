@@ -12,15 +12,18 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
 {
     private readonly IGenericRepository<Message> _messageRepository;
     private readonly IGenericRepository<Attachment> _attachmentRepository;
+    private readonly IGenericRepository<Participant> _participantRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public SendMessageCommandHandler(
         IGenericRepository<Message> messageRepository,
         IGenericRepository<Attachment> attachmentRepository,
+        IGenericRepository<Participant> participantRepository,
         IUnitOfWork unitOfWork)
     {
         _messageRepository = messageRepository;
         _attachmentRepository = attachmentRepository;
+        _participantRepository = participantRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -62,6 +65,16 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
                 FileSize = request.AttachmentSize ?? 0
             };
             await _attachmentRepository.AddAsync(attachment);
+        }
+
+        var participants = await _participantRepository.FindAsync(p => p.ConversationId == request.ConversationId);
+        foreach (var p in participants)
+        {
+            if (p.HasDeleted)
+            {
+                p.HasDeleted = false;
+                _participantRepository.Update(p);
+            }
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

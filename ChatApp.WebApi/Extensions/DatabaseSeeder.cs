@@ -6,6 +6,7 @@ using ChatApp.Infrastructure.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace ChatApp.WebApi.Extensions;
 
@@ -27,6 +28,10 @@ public static class DatabaseSeeder
         
         // Tự động apply pending migrations
         context.Database.EnsureCreated();
+
+        // Workaround for EF Migrations failing after EnsureCreated
+        context.Database.ExecuteSqlRaw("ALTER TABLE \"Participants\" ADD COLUMN IF NOT EXISTS \"HasDeleted\" boolean NOT NULL DEFAULT false;");
+        context.Database.ExecuteSqlRaw("ALTER TABLE \"Participants\" ADD COLUMN IF NOT EXISTS \"ClearedAt\" timestamp with time zone NULL;");
 
         if (!context.Users.Any())
         {

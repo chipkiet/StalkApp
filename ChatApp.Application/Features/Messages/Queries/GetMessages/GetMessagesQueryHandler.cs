@@ -14,21 +14,34 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
     private readonly IGenericRepository<Message> _messageRepository;
     private readonly IGenericRepository<Attachment> _attachmentRepository;
     private readonly IGenericRepository<MessageReaction> _reactionRepository;
+    private readonly IGenericRepository<Participant> _participantRepository;
 
     public GetMessagesQueryHandler(
         IGenericRepository<Message> messageRepository,
         IGenericRepository<Attachment> attachmentRepository,
-        IGenericRepository<MessageReaction> reactionRepository)
+        IGenericRepository<MessageReaction> reactionRepository,
+        IGenericRepository<Participant> participantRepository)
     {
         _messageRepository = messageRepository;
         _attachmentRepository = attachmentRepository;
         _reactionRepository = reactionRepository;
+        _participantRepository = participantRepository;
     }
 
     public async Task<List<MessageDto>> Handle(GetMessagesQuery request, CancellationToken cancellationToken)
     {
-        var messages = await _messageRepository.FindAsync(m => m.ConversationId == request.ConversationId);
-        var messageList = messages.OrderByDescending(m => m.CreatedAt).Take(request.Count).ToList();
+        var participants = await _participantRepository.FindAsync(p => p.ConversationId == request.ConversationId && p.UserId == request.UserId);
+        var participant = participants.FirstOrDefault();
+            
+        var messagesQuery = _messageRepository.GetQueryable()
+            .Where(m => m.ConversationId == request.ConversationId);
+
+        if (participant != null && participant.ClearedAt.HasValue)
+        {
+            messagesQuery = messagesQuery.Where(m => m.CreatedAt >= participant.ClearedAt.Value);
+        }
+
+        var messageList = messagesQuery.OrderByDescending(m => m.CreatedAt).Take(request.Count).ToList();
 
         var messageIds = messageList.Select(m => m.Id).ToList();
         var replyIds = messageList

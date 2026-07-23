@@ -97,6 +97,27 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy thông tin cá nhân của một user bất kỳ theo ID
+    /// </summary>
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetUserProfile(Guid id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user is null)
+            return NotFound(new { message = "Người dùng không tồn tại." });
+
+        return Ok(new
+        {
+            id = user.Id,
+            displayName = user.DisplayName,
+            username = user.Username,
+            phoneNumber = user.PhoneNumber,
+            avatarUrl = user.AvatarUrl,
+            bio = user.Bio
+        });
+    }
+
+    /// <summary>
     /// UC-22: Lấy trạng thái online/offline của một user
     /// </summary>
     [HttpGet("{userId}/status")]

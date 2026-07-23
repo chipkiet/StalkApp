@@ -29,8 +29,27 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
+            // Remove quotes if present
+            token = token.Trim('"');
+
+            var claims = ParseClaimsFromJwt(token).ToList();
+            
+            // Check expiration
+            var expClaim = claims.FirstOrDefault(c => c.Type == "exp");
+            if (expClaim != null && long.TryParse(expClaim.Value, out var exp))
+            {
+                var expTime = DateTimeOffset.FromUnixTimeSeconds(exp).UtcDateTime;
+                if (expTime <= DateTime.UtcNow)
+                {
+                    // Token expired
+                    await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", TOKEN_KEY);
+                    _httpClient.DefaultRequestHeaders.Authorization = null;
+                    return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+                }
+            }
+
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt")));
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt")));
         }
         catch
         {
