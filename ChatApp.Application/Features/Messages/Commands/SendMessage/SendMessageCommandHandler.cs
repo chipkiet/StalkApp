@@ -26,7 +26,6 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
 
     public async Task<MessageDto> Handle(SendMessageCommand request, CancellationToken cancellationToken)
     {
-        // 1. Khởi tạo Entity Message
         var message = new Message
         {
             Id = Guid.NewGuid(),
@@ -39,10 +38,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             IsPinned = false
         };
 
-        // 2. Thêm vào Repository
         await _messageRepository.AddAsync(message);
 
-        // 3. Nếu có đính kèm
         if (!string.IsNullOrEmpty(request.AttachmentUrl))
         {
             var attachment = new Attachment
@@ -57,10 +54,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             await _attachmentRepository.AddAsync(attachment);
         }
 
-        // 4. SaveChanges (thực thi lưu DB qua UnitOfWork)
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 5. Trả về Dto
         return new MessageDto(
             message.Id,
             message.ConversationId,
@@ -69,7 +64,11 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             message.Content,
             message.CreatedAt,
             request.AttachmentUrl,
-            request.AttachmentName
+            request.AttachmentName,
+            message.IsPinned,
+            message.IsDeleted,
+            message.UpdatedAt,
+            Reactions: Array.Empty<ReactionDto>()
         );
     }
 }

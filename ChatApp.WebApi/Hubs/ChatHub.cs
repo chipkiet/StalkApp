@@ -1,6 +1,11 @@
 using System;
 using System.Threading.Tasks;
 using ChatApp.Application.DTOs.Messages;
+using ChatApp.Application.Features.Messages.Commands.AddReaction;
+using ChatApp.Application.Features.Messages.Commands.DeleteMessage;
+using ChatApp.Application.Features.Messages.Commands.EditMessage;
+using ChatApp.Application.Features.Messages.Commands.PinMessage;
+using ChatApp.Application.Features.Messages.Commands.RemoveReaction;
 using ChatApp.Application.Features.Messages.Commands.SendMessage;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
@@ -16,38 +21,100 @@ public class ChatHub : Hub
         _mediator = mediator;
     }
 
-    // Khi User click vào phòng chat, họ sẽ join vào Group để nhận tin
     public async Task JoinChatRoom(string conversationId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, conversationId);
     }
 
-    // Khi User rời phòng chat
     public async Task LeaveChatRoom(string conversationId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, conversationId);
     }
 
-    // Client gọi hàm này để gửi tin nhắn
     public async Task SendMessage(SendMessageCommand command)
     {
         try
         {
-            // 1. Gửi Command vào MediatR để lưu Database
             MessageDto messageDto = await _mediator.Send(command);
-
-            // 2. Sau khi lưu thành công, Broadcast tin nhắn này tới những người đang mở phòng Chat
             await Clients.Group(command.ConversationId.ToString())
                 .SendAsync("ReceiveNewMessage", messageDto);
         }
         catch (Exception ex)
         {
-            // Báo lỗi về lại cho người gửi
             await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
         }
     }
 
-    // Luồng Báo hiệu Cuộc gọi (Call Signaling)
+    public async Task EditMessage(EditMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageEdited", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task DeleteMessage(DeleteMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageDeleted", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task PinMessage(PinMessageCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessagePinned", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task AddReaction(AddReactionCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageReactionUpdated", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task RemoveReaction(RemoveReactionCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString())
+                .SendAsync("MessageReactionUpdated", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
     public async Task InitiateCall(ChatApp.Application.Features.Calls.Commands.CreateCall.CreateCallCommand command)
     {
         try
@@ -56,7 +123,6 @@ public class ChatHub : Hub
             var createCmd = command with { Id = callId };
             await _mediator.Send(createCmd);
 
-            // Báo lại cho Caller biết ID cuộc gọi
             await Clients.Caller.SendAsync("CallInitiated", callId);
 
             await Clients.OthersInGroup(command.ConversationId.ToString())
@@ -85,7 +151,6 @@ public class ChatHub : Hub
 
     public async Task SendWebRTCSignal(string conversationId, string payload)
     {
-        // Gửi thông tin SDP / ICE Candidates cho người kia
         await Clients.OthersInGroup(conversationId).SendAsync("ReceiveWebRTCSignal", payload);
     }
 }
