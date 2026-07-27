@@ -71,9 +71,20 @@
                             }
                         </div>
                         <div class="conv-info">
-                            <div class="conv-top">
-                                <span class="conv-name">@(item.Title ?? "Cuộc trò chuyện")</span>
-                                <span class="conv-time">@FormatTime(item.LastMessageAt)</span>
+                            <div class="conv-top" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="conv-name" style="display: flex; align-items: center; gap: 4px;">
+                                    @if (item.IsPinned) { <span title="Đã ghim">📌</span> }
+                                    @(item.Title ?? "Cuộc trò chuyện")
+                                </span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <button class="btn-pin-conv" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 0.9rem; opacity: 0.5;"
+                                            @onclick:stopPropagation="true" 
+                                            @onclick="() => TogglePin(item.ConversationId, !item.IsPinned)" 
+                                            title="@(item.IsPinned ? "Bỏ ghim" : "Ghim hội thoại")">
+                                        @(item.IsPinned ? "📌" : "📍")
+                                    </button>
+                                    <span class="conv-time">@FormatTime(item.LastMessageAt)</span>
+                                </div>
                             </div>
                             <div class="conv-bottom">
                                 <span class="conv-preview">@TruncateMessage(item.LastMessage)</span>
@@ -854,7 +865,7 @@
                         {
                             selectedConversation = updatedConv;
                         }
-                        inboxItems = inboxItems.OrderByDescending(x => x.LastMessageAt).ToList();
+                        inboxItems = inboxItems.OrderByDescending(x => x.IsPinned).ThenByDescending(x => x.LastMessageAt).ToList();
                     }
                 }
 
@@ -1086,6 +1097,32 @@
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task TogglePin(Guid conversationId, bool isPinned)
+    {
+        try
+        {
+            var body = new { UserId = currentUserId, IsPinned = isPinned };
+            var response = await Http.PostAsJsonAsync($"/api/conversations/{conversationId}/pin", body);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                if (inboxItems != null)
+                {
+                    var item = inboxItems.FirstOrDefault(i => i.ConversationId == conversationId);
+                    if (item != null)
+                    {
+                        var updatedItem = item with { IsPinned = isPinned };
+                        var idx = inboxItems.IndexOf(item);
+                        inboxItems[idx] = updatedItem;
+                        inboxItems = inboxItems.OrderByDescending(x => x.IsPinned).ThenByDescending(x => x.LastMessageAt).ToList();
+                        StateHasChanged();
+                    }
+                }
+            }
+        }
+        catch { }
     }
 
     private async Task SelectConversation(InboxItemDto item)
@@ -1427,9 +1464,11 @@
     {
         try
         {
-            var body = new { UserId = currentUserId, Emotion = emotion };
-            var response = await Http.PostAsJsonAsync($"/api/messages/{messageId}/reactions", body);
-            // We rely on SignalR MessageReactionUpdated for UI update
+            var command = new { MessageId = messageId, UserId = currentUserId, Emotion = emotion };
+            if (hubConnection != null)
+            {
+                await hubConnection.SendAsync("AddReaction", command);
+            }
         }
         catch { }
     }

@@ -8,7 +8,8 @@ public record InboxItemDto(
     string? Title,
     string? AvatarUrl,
     ConversationType Type,
-    string LastMessage,
+    string? LastMessage,
     DateTime? LastMessageAt,
-    int UnreadCount
+    int UnreadCount,
+    bool IsPinned = false
 );
