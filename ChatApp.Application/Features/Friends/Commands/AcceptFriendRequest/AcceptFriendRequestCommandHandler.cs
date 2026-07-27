@@ -9,13 +9,16 @@ public class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFriendReq
 {
     private readonly IGenericRepository<Friendship> _friendshipRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IMediator _mediator;
 
     public AcceptFriendRequestCommandHandler(
         IGenericRepository<Friendship> friendshipRepo,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IMediator mediator)
     {
         _friendshipRepo = friendshipRepo;
         _unitOfWork = unitOfWork;
+        _mediator = mediator;
     }
 
     public async Task<FriendCommandResult> Handle(AcceptFriendRequestCommand request, CancellationToken cancellationToken)
@@ -37,6 +40,14 @@ public class AcceptFriendRequestCommandHandler : IRequestHandler<AcceptFriendReq
 
         _friendshipRepo.Update(friendship);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Tự động tạo cuộc hội thoại (nếu chưa có) giữa 2 người
+        await _mediator.Send(new ChatApp.Application.Features.Conversations.Commands.CreateConversation.CreateConversationCommand(
+            CreatorId: request.CurrentUserId,
+            Title: null,
+            Type: ChatApp.Domain.Enums.ConversationType.Direct,
+            ParticipantIds: new List<Guid> { request.CurrentUserId, friendship.RequesterId }
+        ), cancellationToken);
 
         return new FriendCommandResult(true, "Đã chấp nhận lời mời kết bạn.");
     }
