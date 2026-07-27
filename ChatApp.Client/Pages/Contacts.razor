@@ -1,0 +1,698 @@
+@page "/contacts"
+@attribute [Authorize]
+@using ChatApp.Shared.DTOs.Friends
+@using ChatApp.Shared.Enums
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+<PageTitle>Danh bạ – STALKchat</PageTitle>
+
+<div class="contacts-shell">
+
+    <!-- ═══ HEADER ═══ -->
+    <div class="contacts-header">
+        <div class="contacts-header-title">
+            <span class="contacts-header-icon">👥</span>
+            <h1>Danh bạ</h1>
+        </div>
+        <div class="contacts-header-count">
+            @if (friends != null)
+            {
+                <span class="friend-count-badge">@friends.Count bạn bè</span>
+            }
+        </div>
+    </div>
+
+    <!-- ═══ TABS ═══ -->
+    <div class="contacts-tabs">
+        <button class="tab-btn @(activeTab == "friends" ? "active" : "")" @onclick='() => SetTab("friends")'>
+            <span>Bạn bè</span>
+            @if (friends != null)
+            {
+                <span class="tab-count">@friends.Count</span>
+            }
+        </button>
+        <button class="tab-btn @(activeTab == "pending" ? "active" : "")" @onclick='() => SetTab("pending")'>
+            <span>Lời mời</span>
+            @if (pendingRequests != null && pendingRequests.Count > 0)
+            {
+                <span class="tab-count pending-dot">@pendingRequests.Count</span>
+            }
+        </button>
+        <button class="tab-btn @(activeTab == "search" ? "active" : "")" @onclick='() => SetTab("search")'>
+            <span>Thêm bạn</span>
+        </button>
+    </div>
+
+    <!-- ═══ TAB CONTENT ═══ -->
+    <div class="contacts-content">
+
+        <!-- ── Tab: Bạn bè ── -->
+        @if (activeTab == "friends")
+        {
+            <!-- Search trong danh bạ -->
+            <div class="contacts-search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text"
+                       class="contacts-search-input"
+                       placeholder="Tìm trong danh bạ..."
+                       @bind="friendsSearchTerm"
+                       @bind:event="oninput" />
+            </div>
+
+            @if (isLoadingFriends)
+            {
+                <div class="contacts-loading">
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        <div class="friend-skeleton">
+                            <div class="skel-avatar"></div>
+                            <div class="skel-info">
+                                <div class="skel-line skel-name"></div>
+                                <div class="skel-line skel-sub"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (friends == null || friends.Count == 0)
+            {
+                <div class="contacts-empty">
+                    <div class="contacts-empty-icon">👤</div>
+                    <p>Chưa có bạn bè nào</p>
+                    <span>Hãy thêm bạn bè bằng cách tìm kiếm số điện thoại</span>
+                    <button class="btn-add-first" @onclick='() => SetTab("search")'>Thêm bạn ngay</button>
+                </div>
+            }
+            else
+            {
+                var filtered = friends
+                    .Where(f => string.IsNullOrEmpty(friendsSearchTerm) ||
+                                f.DisplayName.Contains(friendsSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                                (f.PhoneNumber?.Contains(friendsSearchTerm) ?? false))
+                    .ToList();
+
+                if (!filtered.Any())
+                {
+                    <div class="contacts-empty">
+                        <div class="contacts-empty-icon">🔍</div>
+                        <p>Không tìm thấy kết quả</p>
+                    </div>
+                }
+                else
+                {
+                    <!-- Nhóm theo chữ cái đầu -->
+                    @foreach (var group in filtered.GroupBy(f => GetGroupKey(f.DisplayName)).OrderBy(g => g.Key))
+                    {
+                        <div class="alpha-group">
+                            <div class="alpha-label">@group.Key</div>
+                            @foreach (var friend in group.OrderBy(f => f.DisplayName))
+                            {
+                                <div class="friend-card @(friend.IsOnline ? "online" : "")">
+                                    <div class="friend-avatar-wrap">
+                                        @if (!string.IsNullOrEmpty(friend.AvatarUrl))
+                                        {
+                                            <img class="friend-avatar-img" src="@friend.AvatarUrl" alt="@friend.DisplayName" />
+                                        }
+                                        else
+                                        {
+                                            <div class="friend-avatar-placeholder">
+                                                <span>@GetInitials(friend.DisplayName)</span>
+                                            </div>
+                                        }
+                                        <span class="presence-dot @(friend.IsOnline ? "dot-online" : "dot-offline")"></span>
+                                    </div>
+
+                                    <div class="friend-info">
+                                        <div class="friend-name">@friend.DisplayName</div>
+                                        <div class="friend-sub">
+                                            @if (!string.IsNullOrEmpty(friend.PhoneNumber))
+                                            {
+                                                <span class="friend-phone">@friend.PhoneNumber</span>
+                                                <span class="separator">•</span>
+                                            }
+                                            @if (friend.IsOnline)
+                                            {
+                                                <span class="status-online">Đang hoạt động</span>
+                                            }
+                                            else if (friend.LastSeenAt.HasValue)
+                                            {
+                                                <span class="status-offline">@FormatLastSeen(friend.LastSeenAt.Value)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="status-offline">Offline</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="friend-actions">
+                                        <button class="btn-chat" @onclick="() => GoToChat(friend.UserId)" title="Nhắn tin">
+                                            💬
+                                        </button>
+                                        <button class="btn-remove" @onclick="() => ConfirmRemoveFriend(friend)" title="Xóa bạn">
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            }
+        }
+
+        <!-- ── Tab: Lời mời ── -->
+        @if (activeTab == "pending")
+        {
+            @if (isLoadingPending)
+            {
+                <div class="contacts-loading">
+                    @for (int i = 0; i < 3; i++)
+                    {
+                        <div class="friend-skeleton">
+                            <div class="skel-avatar"></div>
+                            <div class="skel-info">
+                                <div class="skel-line skel-name"></div>
+                                <div class="skel-line skel-sub"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (pendingRequests == null || pendingRequests.Count == 0)
+            {
+                <div class="contacts-empty">
+                    <div class="contacts-empty-icon">📭</div>
+                    <p>Không có lời mời nào</p>
+                    <span>Khi có người gửi lời mời kết bạn, bạn sẽ thấy ở đây</span>
+                </div>
+            }
+            else
+            {
+                <div class="pending-list">
+                    @foreach (var req in pendingRequests)
+                    {
+                        <div class="pending-card">
+                            <div class="friend-avatar-wrap">
+                                @if (!string.IsNullOrEmpty(req.AvatarUrl))
+                                {
+                                    <img class="friend-avatar-img" src="@req.AvatarUrl" alt="@req.DisplayName" />
+                                }
+                                else
+                                {
+                                    <div class="friend-avatar-placeholder">
+                                        <span>@GetInitials(req.DisplayName)</span>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="friend-info">
+                                <div class="friend-name">@req.DisplayName</div>
+                                @if (!string.IsNullOrEmpty(req.PhoneNumber))
+                                {
+                                    <div class="friend-sub">@req.PhoneNumber</div>
+                                }
+                            </div>
+
+                            <div class="pending-actions">
+                                <button class="btn-accept" @onclick="() => AcceptRequest(req)" disabled="@isActioning">
+                                    ✓ Chấp nhận
+                                </button>
+                                <button class="btn-decline" @onclick="() => DeclineRequest(req)" disabled="@isActioning">
+                                    ✕ Từ chối
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        <!-- ── Tab: Thêm bạn ── -->
+        @if (activeTab == "search")
+        {
+            <div class="add-friend-panel">
+                <div class="add-friend-hero">
+                    <div class="add-friend-hero-icon">🔍</div>
+                    <h2>Tìm bạn mới</h2>
+                    <p>Nhập số điện thoại để tìm kiếm và kết bạn</p>
+                </div>
+
+                <div class="add-friend-form">
+                    <div class="phone-input-wrap @(searchError != null ? "error" : "")">
+                        <span class="phone-prefix">📱</span>
+                        <input type="tel"
+                               id="phone-search-input"
+                               class="phone-input"
+                               placeholder="Nhập số điện thoại..."
+                               @bind="searchPhone"
+                               @bind:event="oninput"
+                               @onkeydown="HandleSearchKeyDown" />
+                    </div>
+
+                    <button class="btn-search-phone"
+                            @onclick="SearchByPhone"
+                            disabled="@(isSearching || string.IsNullOrWhiteSpace(searchPhone))">
+                        @if (isSearching)
+                        {
+                            <span class="spinner"></span>
+                            <span>Đang tìm...</span>
+                        }
+                        else
+                        {
+                            <span>Tìm kiếm</span>
+                        }
+                    </button>
+                </div>
+
+                @if (searchError != null)
+                {
+                    <div class="search-error">
+                        <span>⚠️</span>
+                        <span>@searchError</span>
+                    </div>
+                }
+
+                @if (searchResult != null)
+                {
+                    <div class="search-result-card">
+                        <div class="friend-avatar-wrap large">
+                            @if (!string.IsNullOrEmpty(searchResult.AvatarUrl))
+                            {
+                                <img class="friend-avatar-img" src="@searchResult.AvatarUrl" alt="@searchResult.DisplayName" />
+                            }
+                            else
+                            {
+                                <div class="friend-avatar-placeholder large">
+                                    <span>@GetInitials(searchResult.DisplayName ?? "?")</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="search-result-info">
+                            <div class="friend-name">@searchResult.DisplayName</div>
+                            @if (!string.IsNullOrEmpty(searchResult.Username))
+                            {
+                                <div class="friend-sub">@@@searchResult.Username</div>
+                            }
+                            <div class="friend-sub">@searchResult.PhoneNumber</div>
+                        </div>
+
+                        <button class="btn-send-request"
+                                @onclick="SendFriendRequest"
+                                disabled="@isSendingRequest">
+                            @if (isSendingRequest)
+                            {
+                                <span class="spinner"></span>
+                            }
+                            else
+                            {
+                                <span>➕ Kết bạn</span>
+                            }
+                        </button>
+                    </div>
+                }
+
+                @if (requestSentMessage != null)
+                {
+                    <div class="request-sent-toast @(requestSentMessage.StartsWith("✓") ? "toast-success" : "toast-error")">
+                        @requestSentMessage
+                    </div>
+                }
+            </div>
+        }
+
+    </div>
+</div>
+
+<!-- ═══ CONFIRM REMOVE DIALOG ═══ -->
+@if (removingFriend != null)
+{
+    <div class="modal-overlay" @onclick="CancelRemove">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-icon">⚠️</div>
+            <h3>Xóa bạn bè?</h3>
+            <p>Bạn có chắc muốn xóa <strong>@removingFriend.DisplayName</strong> khỏi danh bạ không?</p>
+            <div class="modal-actions">
+                <button class="btn-cancel-modal" @onclick="CancelRemove">Hủy</button>
+                <button class="btn-confirm-remove" @onclick="RemoveFriend" disabled="@isActioning">
+                    @(isActioning ? "Đang xóa..." : "Xóa bạn")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "friends";
+    private string friendsSearchTerm = "";
+
+    // Data
+    private List<FriendDto>? friends;
+    private List<FriendDto>? pendingRequests;
+
+    // Loading states
+    private bool isLoadingFriends = true;
+    private bool isLoadingPending = true;
+    private bool isActioning = false;
+
+    // Search
+    private string searchPhone = "";
+    private bool isSearching = false;
+    private string? searchError;
+    private SearchResultDto? searchResult;
+    private bool isSendingRequest = false;
+    private string? requestSentMessage;
+
+    // Remove confirm
+    private FriendDto? removingFriend;
+
+    // SignalR
+    private HubConnection? hubConnection;
+    private Guid currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Đọc query param ?tab= từ toast notification
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("tab", out var tabParam))
+            activeTab = tabParam.ToString();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? authState.User.FindFirst("sub")?.Value
+            ?? authState.User.FindFirst("nameid")?.Value;
+        Guid.TryParse(userIdStr, out currentUserId);
+
+        await LoadFriendsAsync();
+        await LoadPendingAsync();
+        await StartSignalRAsync();
+    }
+
+    private async Task StartSignalRAsync()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/chathub"), options =>
+                {
+                    options.AccessTokenProvider = async () =>
+                    {
+                        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                        return string.IsNullOrEmpty(token) ? null : token.Trim('"');
+                    };
+                })
+                .WithAutomaticReconnect()
+                .Build();
+
+            // ── Nhận lời mời kết bạn mới → thêm vào pending list real-time ──
+            hubConnection.On<FriendNotificationDto>("FriendRequestReceived", (dto) =>
+            {
+                if (pendingRequests == null) pendingRequests = new();
+                // Tránh trùng
+                if (!pendingRequests.Any(r => r.FriendshipId == dto.FriendshipId))
+                {
+                    pendingRequests.Insert(0, new FriendDto
+                    {
+                        FriendshipId = dto.FriendshipId,
+                        UserId = dto.UserId,
+                        DisplayName = dto.DisplayName ?? "Người dùng",
+                        AvatarUrl = dto.AvatarUrl,
+                        Status = FriendshipStatus.Pending,
+                        IsRequester = false
+                    });
+                }
+                InvokeAsync(StateHasChanged);
+            });
+
+            // ── Lời mời được chấp nhận → reload danh sách bạn bè ──
+            hubConnection.On<FriendNotificationDto>("FriendRequestAccepted", async (dto) =>
+            {
+                // Nếu mình là người gửi, bạn mới xuất hiện trong friends
+                // Nếu mình là người chấp nhận (addressee), cũng reload
+                await InvokeAsync(LoadFriendsAsync);
+                // Xóa khỏi pending nếu có
+                if (pendingRequests != null)
+                {
+                    var item = pendingRequests.FirstOrDefault(r => r.FriendshipId == dto.FriendshipId);
+                    if (item != null) pendingRequests.Remove(item);
+                }
+                await InvokeAsync(StateHasChanged);
+            });
+
+            // ── Bạn bị xóa → xóa khỏi danh sách real-time ──
+            hubConnection.On<FriendNotificationDto>("FriendRemoved", (dto) =>
+            {
+                if (friends != null)
+                {
+                    var removed = friends.FirstOrDefault(f => f.FriendshipId == dto.FriendshipId);
+                    if (removed != null) friends.Remove(removed);
+                }
+                InvokeAsync(StateHasChanged);
+            });
+
+            await hubConnection.StartAsync();
+        }
+        catch { /* SignalR lỗi không crash page */ }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+            await hubConnection.DisposeAsync();
+    }
+
+    private async Task LoadFriendsAsync()
+    {
+        isLoadingFriends = true;
+        try
+        {
+            friends = await Http.GetFromJsonAsync<List<FriendDto>>("/api/friends") ?? new();
+        }
+        catch
+        {
+            friends = new();
+        }
+        finally
+        {
+            isLoadingFriends = false;
+        }
+    }
+
+    private async Task LoadPendingAsync()
+    {
+        isLoadingPending = true;
+        try
+        {
+            pendingRequests = await Http.GetFromJsonAsync<List<FriendDto>>("/api/friends/pending") ?? new();
+        }
+        catch
+        {
+            pendingRequests = new();
+        }
+        finally
+        {
+            isLoadingPending = false;
+        }
+    }
+
+    private async Task SetTab(string tab)
+    {
+        activeTab = tab;
+        if (tab == "friends" && friends == null)
+            await LoadFriendsAsync();
+        else if (tab == "pending" && pendingRequests == null)
+            await LoadPendingAsync();
+    }
+
+    // ── Search by phone ──
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchByPhone();
+    }
+
+    private async Task SearchByPhone()
+    {
+        if (string.IsNullOrWhiteSpace(searchPhone)) return;
+
+        isSearching = true;
+        searchError = null;
+        searchResult = null;
+        requestSentMessage = null;
+
+        try
+        {
+            var result = await Http.GetFromJsonAsync<SearchResultDto>($"/api/users/search?phone={Uri.EscapeDataString(searchPhone.Trim())}");
+            if (result != null)
+            {
+                // Kiểm tra có phải chính mình không
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var myId = authState.User.FindFirst("sub")?.Value
+                    ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+                if (result.Id.ToString() == myId)
+                    searchError = "Đây là tài khoản của bạn.";
+                else
+                    searchResult = result;
+            }
+        }
+        catch (Exception ex) when (ex.Message.Contains("404") || ex.Message.Contains("NotFound"))
+        {
+            searchError = "Không tìm thấy người dùng với số điện thoại này.";
+        }
+        catch
+        {
+            searchError = "Đã xảy ra lỗi. Vui lòng thử lại.";
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    private async Task SendFriendRequest()
+    {
+        if (searchResult == null) return;
+
+        isSendingRequest = true;
+        requestSentMessage = null;
+
+        try
+        {
+            var dto = new SendFriendRequestDto { AddresseeId = searchResult.Id };
+            var response = await Http.PostAsJsonAsync("/api/friends/request", dto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                requestSentMessage = "✓ Đã gửi lời mời kết bạn thành công!";
+                searchResult = null;
+                searchPhone = "";
+            }
+            else
+            {
+                var err = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                requestSentMessage = $"⚠ {err?.Message ?? "Không thể gửi lời mời."}";
+            }
+        }
+        catch
+        {
+            requestSentMessage = "⚠ Đã xảy ra lỗi. Vui lòng thử lại.";
+        }
+        finally
+        {
+            isSendingRequest = false;
+        }
+    }
+
+    // ── Accept / Decline ──
+    private async Task AcceptRequest(FriendDto request)
+    {
+        isActioning = true;
+        try
+        {
+            var response = await Http.PutAsync($"/api/friends/{request.FriendshipId}/accept", null);
+            if (response.IsSuccessStatusCode)
+            {
+                pendingRequests?.Remove(request);
+                await LoadFriendsAsync();
+            }
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+
+    private async Task DeclineRequest(FriendDto request)
+    {
+        isActioning = true;
+        try
+        {
+            var response = await Http.PutAsync($"/api/friends/{request.FriendshipId}/decline", null);
+            if (response.IsSuccessStatusCode)
+                pendingRequests?.Remove(request);
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+
+    // ── Remove friend ──
+    private void ConfirmRemoveFriend(FriendDto friend) => removingFriend = friend;
+    private void CancelRemove() => removingFriend = null;
+
+    private async Task RemoveFriend()
+    {
+        if (removingFriend == null) return;
+
+        isActioning = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/friends/{removingFriend.FriendshipId}");
+            if (response.IsSuccessStatusCode)
+            {
+                friends?.Remove(removingFriend);
+                removingFriend = null;
+            }
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+
+    // ── Navigate to chat ──
+    private void GoToChat(Guid userId)
+    {
+        Nav.NavigateTo($"/?openChat={userId}");
+    }
+
+    // ── Helpers ──
+    private string GetGroupKey(string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)) return "#";
+        var first = displayName.Trim()[0];
+        return char.IsLetter(first) ? first.ToString().ToUpper() : "#";
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        return name[0].ToString().ToUpper();
+    }
+
+    private string FormatLastSeen(DateTime lastSeen)
+    {
+        var diff = DateTime.UtcNow - lastSeen;
+        if (diff.TotalMinutes < 1) return "Vừa xong";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} phút trước";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} giờ trước";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays} ngày trước";
+        return lastSeen.ToString("dd/MM/yyyy");
+    }
+
+    // Local DTOs
+    private class SearchResultDto
+    {
+        public Guid Id { get; set; }
+        public string? DisplayName { get; set; }
+        public string? Username { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? AvatarUrl { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+}

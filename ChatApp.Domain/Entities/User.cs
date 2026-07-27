@@ -23,4 +23,8 @@ public class User
     public ICollection<Message> Messages { get; set; } = new List<Message>();
     public ICollection<MessageReaction> MessageReactions { get; set; } = new List<MessageReaction>();
     public ICollection<Call> CallsInitiated { get; set; } = new List<Call>();
+
+    // Friendship navigation
+    public ICollection<Friendship> FriendshipsSent { get; set; } = new List<Friendship>();
+    public ICollection<Friendship> FriendshipsReceived { get; set; } = new List<Friendship>();
 }

@@ -14,15 +14,18 @@ public class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, List<InboxIte
     private readonly IGenericRepository<Participant> _participantRepository;
     private readonly IGenericRepository<Message> _messageRepository;
     private readonly IGenericRepository<Conversation> _conversationRepository;
+    private readonly IGenericRepository<User> _userRepository;
 
     public GetInboxQueryHandler(
         IGenericRepository<Participant> participantRepository,
         IGenericRepository<Message> messageRepository,
-        IGenericRepository<Conversation> conversationRepository)
+        IGenericRepository<Conversation> conversationRepository,
+        IGenericRepository<User> userRepository)
     {
         _participantRepository = participantRepository;
         _messageRepository = messageRepository;
         _conversationRepository = conversationRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<List<InboxItemDto>> Handle(GetInboxQuery request, CancellationToken cancellationToken)
@@ -43,10 +46,39 @@ public class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, List<InboxIte
             }
             var lastMsg = messages.OrderByDescending(m => m.CreatedAt).FirstOrDefault();
 
+            string? displayTitle = conversation.Title;
+            string? displayAvatar = conversation.AvatarUrl;
+
+            // Nếu là chat 1-1, lấy tên và avatar của người kia
+            if (conversation.Type == ChatApp.Domain.Enums.ConversationType.Direct)
+            {
+                var others = await _participantRepository.FindAsync(x => x.ConversationId == conversation.Id && x.UserId != request.UserId);
+                var otherParticipant = others.FirstOrDefault();
+                if (otherParticipant != null)
+                {
+                    var otherUser = await _userRepository.GetByIdAsync(otherParticipant.UserId);
+                    if (otherUser != null)
+                    {
+                        displayTitle = otherUser.DisplayName ?? otherUser.PhoneNumber;
+                        displayAvatar = otherUser.AvatarUrl;
+                    }
+                }
+                else 
+                {
+                    // Trường hợp tự chat với chính mình (Saved Messages)
+                    var me = await _userRepository.GetByIdAsync(request.UserId);
+                    if (me != null)
+                    {
+                        displayTitle = me.DisplayName ?? me.PhoneNumber;
+                        displayAvatar = me.AvatarUrl;
+                    }
+                }
+            }
+
             result.Add(new InboxItemDto(
                 p.ConversationId,
-                conversation.Title,
-                conversation.AvatarUrl,
+                displayTitle,
+                displayAvatar,
                 conversation.Type,
                 lastMsg?.Content ?? "Chưa có tin nhắn",
                 lastMsg?.CreatedAt,
