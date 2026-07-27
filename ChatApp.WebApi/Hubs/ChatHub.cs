@@ -10,6 +10,13 @@ using ChatApp.Application.Features.Messages.Commands.ForwardMessage;
 using ChatApp.Application.Features.Messages.Commands.PinMessage;
 using ChatApp.Application.Features.Messages.Commands.RemoveReaction;
 using ChatApp.Application.Features.Messages.Commands.SendMessage;
+using ChatApp.Application.Features.Pinboard.Commands.CreatePinboardItem;
+using ChatApp.Application.Features.Pinboard.Commands.MovePinboardItem;
+using ChatApp.Application.Features.Pinboard.Commands.CompleteCanvasTask;
+using ChatApp.Application.Features.Pinboard.Commands.DeletePinboardItem;
+using ChatApp.Application.Features.Pinboard.Commands.UpdatePinboardItemContent;
+using ChatApp.Application.Features.Pinboard.Commands.CreatePinboardConnection;
+using ChatApp.Application.Features.Pinboard.Commands.DeletePinboardConnection;
 using ChatApp.Application.Interfaces.Repositories;
 using ChatApp.Application.Interfaces.Services;
 using ChatApp.Domain.Entities;
@@ -326,5 +333,105 @@ public class ChatHub : Hub
     public async Task SendWebRTCSignal(string conversationId, string payload)
     {
         await Clients.OthersInGroup(conversationId).SendAsync("ReceiveWebRTCSignal", payload);
+    }
+
+    // ─── Gamified Pinboard & Canvas ──────────────────────────────────────────
+    public async Task CreatePinboardItem(CreatePinboardItemCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(command.ConversationId.ToString())
+                .SendAsync("PinboardItemCreated", dto);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task MovePinboardItem(MovePinboardItemCommand command, string conversationId)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            if (dto != null)
+            {
+                // Đồng bộ tọa độ cho tất cả (trừ người kéo để tránh giật lag client)
+                await Clients.OthersInGroup(conversationId)
+                    .SendAsync("PinboardItemMoved", dto);
+            }
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task CompleteCanvasTask(CompleteCanvasTaskCommand command, string conversationId)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            if (dto != null)
+            {
+                // Bắn pháo hoa (Gamification) và cập nhật điểm Karma cho toàn nhóm
+                await Clients.Group(conversationId)
+                    .SendAsync("CanvasTaskCompleted", dto, command.TaskId);
+            }
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ErrorMessage", ex.Message);
+        }
+    }
+
+    public async Task DeletePinboardItem(DeletePinboardItemCommand command, string conversationId)
+    {
+        try
+        {
+            var result = await _mediator.Send(command);
+            if (result)
+            {
+                await Clients.Group(conversationId).SendAsync("PinboardItemDeleted", command.Id);
+            }
+        }
+        catch (Exception ex) { await Clients.Caller.SendAsync("ErrorMessage", ex.Message); }
+    }
+
+    public async Task UpdatePinboardItemContent(UpdatePinboardItemContentCommand command, string conversationId)
+    {
+        try
+        {
+            var result = await _mediator.Send(command);
+            if (result)
+            {
+                await Clients.OthersInGroup(conversationId).SendAsync("PinboardItemUpdated", command);
+            }
+        }
+        catch (Exception ex) { await Clients.Caller.SendAsync("ErrorMessage", ex.Message); }
+    }
+
+    public async Task CreatePinboardConnection(CreatePinboardConnectionCommand command)
+    {
+        try
+        {
+            var dto = await _mediator.Send(command);
+            await Clients.Group(dto.ConversationId.ToString()).SendAsync("PinboardConnectionCreated", dto);
+        }
+        catch (Exception ex) { await Clients.Caller.SendAsync("ErrorMessage", ex.Message); }
+    }
+
+    public async Task DeletePinboardConnection(DeletePinboardConnectionCommand command, string conversationId)
+    {
+        try
+        {
+            var result = await _mediator.Send(command);
+            if (result)
+            {
+                await Clients.Group(conversationId).SendAsync("PinboardConnectionDeleted", command.Id);
+            }
+        }
+        catch (Exception ex) { await Clients.Caller.SendAsync("ErrorMessage", ex.Message); }
     }
 }

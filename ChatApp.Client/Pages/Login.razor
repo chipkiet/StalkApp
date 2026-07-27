@@ -62,6 +62,15 @@
                     <span>→</span>
                 }
             </button>
+            
+            <div class="test-accounts-section" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center;">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Tài khoản Test Nhanh</p>
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                    <button class="btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;" @onclick='() => QuickLogin("+841234567890")' disabled="@isLoading">User 1</button>
+                    <button class="btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;" @onclick='() => QuickLogin("+841234567891")' disabled="@isLoading">User 2</button>
+                    <button class="btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;" @onclick='() => QuickLogin("+841234567892")' disabled="@isLoading">User 3</button>
+                </div>
+            </div>
         }
 
         <!-- ═══ STEP 2: Nhập OTP ═══ -->
@@ -141,10 +150,17 @@
 
 @code {
     private int step = 1;
-    private string phoneNumber = string.Empty;
+    private string phoneNumber = "";
     private char[] otpDigits = new char[6];
-    private string errorMessage = string.Empty;
     private bool isLoading = false;
+    private string errorMessage = "";
+    
+    private class SendOtpResponseDto
+    {
+        public string? Message { get; set; }
+        public string? OtpCodeDev { get; set; }
+    }
+    
     private int resendCountdown = 0;
     private System.Timers.Timer? resendTimer;
 
@@ -229,6 +245,55 @@
         catch
         {
             errorMessage = "Không kết nối được tới server. Vui lòng kiểm tra mạng.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task QuickLogin(string phone)
+    {
+        phoneNumber = phone;
+        isLoading = true;
+        errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var sendResponse = await Http.PostAsJsonAsync("/api/auth/send-otp", new SendOtpRequest { PhoneNumber = phone });
+            if (sendResponse.IsSuccessStatusCode)
+            {
+                var sendResult = await sendResponse.Content.ReadFromJsonAsync<SendOtpResponseDto>();
+                if (sendResult != null && !string.IsNullOrEmpty(sendResult.OtpCodeDev))
+                {
+                    var verifyResponse = await Http.PostAsJsonAsync("/api/auth/verify-otp", new VerifyOtpRequest
+                    {
+                        PhoneNumber = phone,
+                        OtpCode = sendResult.OtpCodeDev
+                    });
+                    
+                    if (verifyResponse.IsSuccessStatusCode)
+                    {
+                        var auth = await verifyResponse.Content.ReadFromJsonAsync<AuthResponse>();
+                        if (auth != null && !string.IsNullOrEmpty(auth.AccessToken))
+                        {
+                            if (AuthStateProvider is Providers.CustomAuthStateProvider customProvider)
+                            {
+                                await customProvider.MarkUserAsAuthenticated(auth.AccessToken);
+                            }
+                            Nav.NavigateTo("/");
+                            return;
+                        }
+                    }
+                }
+            }
+            errorMessage = "Đăng nhập nhanh thất bại.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Lỗi kết nối: " + ex.Message;
         }
         finally
         {

@@ -409,7 +409,7 @@
                 {
                     options.AccessTokenProvider = async () =>
                     {
-                        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                        var token = await JS.InvokeAsync<string>("sessionStorage.getItem", "authToken");
                         return string.IsNullOrEmpty(token) ? null : token.Trim('"');
                     };
                 })
