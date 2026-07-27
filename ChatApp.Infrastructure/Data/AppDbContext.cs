@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     public DbSet<Call> Calls => Set<Call>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

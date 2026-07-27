@@ -1,6 +1,10 @@
+@using ChatApp.Shared.DTOs.Friends
+@using Microsoft.AspNetCore.SignalR.Client
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject HttpClient Http
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="nav-sidebar">
 
@@ -30,6 +34,14 @@
             <span class="nav-icon">💬</span>
             <span>Tin nhắn</span>
         </NavLink>
+        <NavLink class="nav-item nav-item-contacts" href="contacts">
+            <span class="nav-icon">👥</span>
+            <span>Danh bạ</span>
+            @if (pendingCount > 0)
+            {
+                <span class="nav-badge">@(pendingCount > 9 ? "9+" : pendingCount.ToString())</span>
+            }
+        </NavLink>
         <NavLink class="nav-item" href="profile">
             <span class="nav-icon">👤</span>
             <span>Hồ sơ</span>
@@ -51,6 +63,9 @@
     private string PhoneNumber = "";
     private string AvatarInitials = "?";
     private string? AvatarUrl = null;
+    private int pendingCount = 0;
+
+    private HubConnection? hubConnection;
 
     protected override async Task OnInitializedAsync()
     {
@@ -77,7 +92,80 @@
                 PhoneNumber = user.FindFirst("phoneNumber")?.Value ?? "";
                 AvatarInitials = GetInitials(DisplayName);
             }
+
+            // Lấy số lời mời đang chờ khi load
+            await LoadPendingCountAsync();
+
+            // Kết nối SignalR để lắng nghe sự kiện kết bạn real-time
+            await StartHubAsync();
         }
+    }
+
+    private async Task LoadPendingCountAsync()
+    {
+        try
+        {
+            var pending = await Http.GetFromJsonAsync<List<FriendDto>>("/api/friends/pending");
+            pendingCount = pending?.Count ?? 0;
+        }
+        catch
+        {
+            pendingCount = 0;
+        }
+    }
+
+    private async Task StartHubAsync()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/chathub"), options =>
+                {
+                    options.AccessTokenProvider = async () =>
+                    {
+                        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                        return string.IsNullOrEmpty(token) ? null : token.Trim('"');
+                    };
+                })
+                .WithAutomaticReconnect()
+                .Build();
+
+            // ── Nhận lời mời kết bạn → tăng badge ──
+            hubConnection.On<FriendNotificationDto>("FriendRequestReceived", (dto) =>
+            {
+                pendingCount++;
+                InvokeAsync(StateHasChanged);
+            });
+
+            // ── Lời mời được xử lý (accept/decline) → giảm badge ──
+            hubConnection.On<FriendNotificationDto>("FriendRequestAccepted", (dto) =>
+            {
+                // Đây là sự kiện mình accept hoặc được thông báo mình gửi đã được accept
+                // Trường hợp mình là addressee đang accept → reset badge
+                if (pendingCount > 0) pendingCount = Math.Max(0, pendingCount - 1);
+                InvokeAsync(StateHasChanged);
+            });
+
+            // ── Lời mời bị từ chối (mình là người nhận đã từ chối) ──
+            hubConnection.On<FriendNotificationDto>("FriendRequestDeclined", (dto) =>
+            {
+                // Badge sẽ đã giảm khi user thao tác decline trực tiếp
+                InvokeAsync(StateHasChanged);
+            });
+
+            await hubConnection.StartAsync();
+        }
+        catch
+        {
+            // Không làm crash app nếu SignalR lỗi
+        }
+    }
+
+    // Được gọi từ bên ngoài (Contacts.razor) để sync badge khi user đọc lời mời
+    public void ResetPendingBadge()
+    {
+        pendingCount = 0;
+        InvokeAsync(StateHasChanged);
     }
 
     private string GetInitials(string name)
@@ -94,6 +182,12 @@
         if (AuthStateProvider is Providers.CustomAuthStateProvider customProvider)
             await customProvider.MarkUserAsLoggedOut();
         Nav.NavigateTo("/login");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+            await hubConnection.DisposeAsync();
     }
 
     private class UserProfileDto

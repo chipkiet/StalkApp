@@ -1,0 +1,201 @@
+@using ChatApp.Shared.DTOs.Friends
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.JSInterop
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@* Toast stack hiển thị góc dưới phải *@
+@if (toasts.Any())
+{
+    <div class="friend-toast-container">
+        @foreach (var toast in toasts)
+        {
+            <div class="friend-toast @toast.TypeClass @(toast.IsExiting ? "exiting" : "entering")"
+                 @key="toast.Id">
+                <div class="friend-toast-avatar">
+                    @if (!string.IsNullOrEmpty(toast.AvatarUrl))
+                    {
+                        <img src="@toast.AvatarUrl" alt="@toast.DisplayName" />
+                    }
+                    else
+                    {
+                        <span>@GetInitials(toast.DisplayName)</span>
+                    }
+                </div>
+                <div class="friend-toast-body">
+                    <div class="friend-toast-name">@toast.DisplayName</div>
+                    <div class="friend-toast-msg">@toast.Message</div>
+                </div>
+                <div class="friend-toast-actions">
+                    @if (toast.ShowViewBtn)
+                    {
+                        <button class="friend-toast-view" @onclick="() => GoToContacts(toast)">
+                            Xem
+                        </button>
+                    }
+                    <button class="friend-toast-close" @onclick="() => DismissToast(toast)">✕</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private HubConnection? hubConnection;
+    private List<ToastItem> toasts = new();
+    private Guid currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated != true) return;
+
+        var userIdStr = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("sub")?.Value
+            ?? user.FindFirst("nameid")?.Value;
+
+        if (!Guid.TryParse(userIdStr, out currentUserId)) return;
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/chathub"), options =>
+            {
+                options.AccessTokenProvider = async () =>
+                {
+                    var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+                    return string.IsNullOrEmpty(token) ? null : token.Trim('"');
+                };
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        // ── Nhận lời mời kết bạn ──
+        hubConnection.On<FriendNotificationDto>("FriendRequestReceived", async (dto) =>
+        {
+            await AddToast(new ToastItem
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = dto.DisplayName,
+                AvatarUrl = dto.AvatarUrl,
+                Message = "đã gửi lời mời kết bạn",
+                TypeClass = "toast-request",
+                ShowViewBtn = true,
+                TargetTab = "pending",
+                FriendshipId = dto.FriendshipId
+            });
+        });
+
+        // ── Lời mời được chấp nhận ──
+        hubConnection.On<FriendNotificationDto>("FriendRequestAccepted", async (dto) =>
+        {
+            if (dto.UserId == currentUserId) return; // Không tự toast cho chính mình
+            await AddToast(new ToastItem
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = dto.DisplayName,
+                AvatarUrl = dto.AvatarUrl,
+                Message = "đã chấp nhận lời mời kết bạn 🎉",
+                TypeClass = "toast-accepted",
+                ShowViewBtn = true,
+                TargetTab = "friends",
+                FriendshipId = dto.FriendshipId
+            });
+        });
+
+        // ── Lời mời bị từ chối ──
+        hubConnection.On<FriendNotificationDto>("FriendRequestDeclined", async (dto) =>
+        {
+            await AddToast(new ToastItem
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Lời mời của bạn",
+                AvatarUrl = null,
+                Message = "đã bị từ chối",
+                TypeClass = "toast-declined",
+                ShowViewBtn = false,
+                FriendshipId = dto.FriendshipId
+            });
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task AddToast(ToastItem toast)
+    {
+        await InvokeAsync(() =>
+        {
+            toasts.Insert(0, toast);
+            if (toasts.Count > 4) toasts.RemoveAt(toasts.Count - 1);
+            StateHasChanged();
+        });
+
+        // Auto-dismiss sau 6 giây
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(6000);
+            await DismissToastById(toast.Id);
+        });
+    }
+
+    private async Task DismissToast(ToastItem toast)
+    {
+        await DismissToastById(toast.Id);
+    }
+
+    private async Task DismissToastById(Guid id)
+    {
+        var toast = toasts.FirstOrDefault(t => t.Id == id);
+        if (toast == null) return;
+
+        // Trigger exit animation
+        await InvokeAsync(() =>
+        {
+            toast.IsExiting = true;
+            StateHasChanged();
+        });
+
+        await Task.Delay(300);
+        await InvokeAsync(() =>
+        {
+            toasts.Remove(toast);
+            StateHasChanged();
+        });
+    }
+
+    private void GoToContacts(ToastItem toast)
+    {
+        Nav.NavigateTo($"/contacts?tab={toast.TargetTab}");
+        _ = DismissToast(toast);
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[^1][0]}".ToUpper()
+            : name[0].ToString().ToUpper();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+            await hubConnection.DisposeAsync();
+    }
+
+    private class ToastItem
+    {
+        public Guid Id { get; set; }
+        public string DisplayName { get; set; } = "";
+        public string? AvatarUrl { get; set; }
+        public string Message { get; set; } = "";
+        public string TypeClass { get; set; } = "";
+        public bool ShowViewBtn { get; set; }
+        public string TargetTab { get; set; } = "friends";
+        public Guid FriendshipId { get; set; }
+        public bool IsExiting { get; set; }
+    }
+}
