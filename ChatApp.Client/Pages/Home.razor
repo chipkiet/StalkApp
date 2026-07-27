@@ -582,46 +582,34 @@
 <!-- ═══ MODAL HỒ SƠ (PROFILE) ═══ -->
 @if (showProfileModal && conversationParticipants != null)
 {
-    <div class="modal-backdrop profile-modal-backdrop" @onclick="CloseProfileModal">
-        <div class="profile-modal-container" @onclick:stopPropagation="true">
-            <button class="profile-modal-close" @onclick="CloseProfileModal">✕</button>
-            <div class="profile-modal-content">
-                <div class="profile-modal-header">
-                    <h3 class="profile-modal-title">Thông tin người dùng</h3>
-                </div>
-                
-                <div class="profile-participants-scroll">
+    <div class="modal-backdrop" @onclick="CloseProfileModal">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Thành viên nhóm (@conversationParticipants.Count)</h3>
+                <button class="modal-close-btn" @onclick="CloseProfileModal">✕</button>
+            </div>
+            
+            <div class="modal-body" style="padding-top: 10px; max-height: 400px; overflow-y: auto;">
+                <div class="forward-list">
                     @foreach (var p in conversationParticipants)
                     {
-                        <div class="profile-card-modern">
-                            <div class="profile-card-cover"></div>
-                            <div class="profile-card-body">
-                                <div class="profile-card-avatar" style="cursor:pointer;background-size:cover;background-position:center;@(string.IsNullOrEmpty(p.AvatarUrl) ? "" : $"background-image:url('{p.AvatarUrl}');")" @onclick="() => OpenMemberProfile(p.UserId)">
-                                    @if (string.IsNullOrEmpty(p.AvatarUrl))
-                                    {
-                                        <span>@GetInitials(p.DisplayName)</span>
-                                    }
-                                </div>
-                                <div class="profile-card-info">
-                                    <h4 class="profile-card-name">@(p.DisplayName ?? "Người dùng")</h4>
-                                    
-                                    <div class="profile-card-details">
-                                        @if (!string.IsNullOrEmpty(p.PhoneNumber))
-                                        {
-                                            <div class="profile-detail-item">
-                                                <span class="detail-icon">📞</span>
-                                                <span class="detail-text">@p.PhoneNumber</span>
-                                            </div>
-                                        }
-                                        @if (!string.IsNullOrEmpty(p.Bio))
-                                        {
-                                            <div class="profile-detail-item bio-item">
-                                                <span class="detail-icon">📝</span>
-                                                <span class="detail-text">@p.Bio</span>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
+                        <div class="forward-item" style="cursor: pointer; transition: background-color 0.2s;" @onclick="() => OpenMemberProfile(p.UserId)">
+                            <div class="forward-avatar">
+                                @if (!string.IsNullOrEmpty(p.AvatarUrl))
+                                {
+                                    <img src="@p.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                }
+                                else
+                                {
+                                    @GetInitials(p.DisplayName)
+                                }
+                            </div>
+                            <div class="forward-name" style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-weight: 500;">@(p.DisplayName ?? "Người dùng")</span>
+                                @if (!string.IsNullOrEmpty(p.PhoneNumber))
+                                {
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">@p.PhoneNumber</span>
+                                }
                             </div>
                         </div>
                     }
