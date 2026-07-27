@@ -10,6 +10,7 @@
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ChatApp.Client.Layout.NotificationService NotificationSvc
 
 <PageTitle>Tin nhắn – STALKchat</PageTitle>
 
@@ -756,6 +757,8 @@
     // ─────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
+        NotificationSvc.OnNotificationClicked += HandleNotificationClicked;
+
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         var userIdStr = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
@@ -808,6 +811,22 @@
             else
             {
                 InvokeAsync(LoadInbox);
+                
+                // Push local toast notification
+                if (inboxItems != null)
+                {
+                    var inboxItem = inboxItems.FirstOrDefault(i => i.ConversationId == message.ConversationId);
+                    if (inboxItem != null)
+                    {
+                        NotificationSvc.Push(new ChatApp.Client.Layout.NotificationItem
+                        {
+                            ConversationId = message.ConversationId,
+                            ConversationTitle = inboxItem.Title ?? "Tin nhắn mới",
+                            MessagePreview = message.Content ?? "Đã gửi một tệp",
+                            Timestamp = message.CreatedAt
+                        });
+                    }
+                }
             }
         });
 
@@ -1234,6 +1253,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        NotificationSvc.OnNotificationClicked -= HandleNotificationClicked;
         if (hubConnection is not null)
         {
             await hubConnection.DisposeAsync();
@@ -1468,4 +1488,15 @@
         public string? PhoneNumber { get; set; }
         public string? AvatarUrl { get; set; }
     }
+
+    private void HandleNotificationClicked(Guid conversationId)
+    {
+        var conv = inboxItems?.FirstOrDefault(i => i.ConversationId == conversationId);
+        if (conv != null)
+        {
+            _ = SelectConversation(conv);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
 }

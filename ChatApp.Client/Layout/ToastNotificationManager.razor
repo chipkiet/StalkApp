@@ -1,0 +1,105 @@
+@using ChatApp.Client.Layout
+@inject NotificationService NotificationSvc
+@implements IDisposable
+
+<div class="toast-container">
+    @foreach (var toast in _toasts)
+    {
+        <div class="toast-item @(toast.IsRemoving ? "removing" : "")" 
+             @onclick="() => HandleToastClick(toast.Item.ConversationId)">
+            <div class="toast-icon">
+                💬
+            </div>
+            <div class="toast-body">
+                <div class="toast-title">@toast.Item.ConversationTitle</div>
+                <div class="toast-preview">@toast.Item.MessagePreview</div>
+                <div class="toast-time">@toast.Item.Timestamp.ToString("t")</div>
+            </div>
+            <button class="toast-close" @onclick="() => RemoveToast(toast.Item.Id)" @onclick:stopPropagation>
+                ✕
+            </button>
+            <div class="toast-progress"></div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ToastState> _toasts = new();
+    private const int MaxToasts = 3;
+
+    protected override void OnInitialized()
+    {
+        NotificationSvc.OnNotification += HandleNewNotification;
+    }
+
+    private void HandleNewNotification(NotificationItem item)
+    {
+        // Add new toast
+        var state = new ToastState { Item = item };
+        _toasts.Add(state);
+
+        // Limit to max toasts
+        if (_toasts.Count > MaxToasts)
+        {
+            var oldToRemove = _toasts.Where(t => !t.IsRemoving).FirstOrDefault();
+            if (oldToRemove != null)
+            {
+                TriggerRemove(oldToRemove);
+            }
+        }
+
+        InvokeAsync(StateHasChanged);
+
+        // Auto remove after 3s minus slightly animation time
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2700);
+            TriggerRemove(state);
+        });
+    }
+
+    private void TriggerRemove(ToastState state)
+    {
+        if (state.IsRemoving) return;
+        state.IsRemoving = true;
+        InvokeAsync(StateHasChanged);
+        
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(300); // 0.3s slide out
+            _toasts.Remove(state);
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        var toast = _toasts.FirstOrDefault(t => t.Item.Id == id);
+        if (toast != null)
+        {
+            TriggerRemove(toast);
+        }
+    }
+
+    private void HandleToastClick(Guid conversationId)
+    {
+        NotificationSvc.NotifyClicked(conversationId);
+        // Remove all toasts for this conversation
+        var toastsToRemove = _toasts.Where(t => t.Item.ConversationId == conversationId).ToList();
+        foreach (var t in toastsToRemove)
+        {
+            TriggerRemove(t);
+        }
+    }
+
+    public void Dispose()
+    {
+        NotificationSvc.OnNotification -= HandleNewNotification;
+    }
+
+    private class ToastState
+    {
+        public NotificationItem Item { get; set; } = new();
+        public bool IsRemoving { get; set; }
+    }
+}

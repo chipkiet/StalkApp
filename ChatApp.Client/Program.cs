@@ -10,4 +10,5 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, ChatApp.Client.Providers.CustomAuthStateProvider>();
+builder.Services.AddSingleton<ChatApp.Client.Layout.NotificationService>();
 await builder.Build().RunAsync();
