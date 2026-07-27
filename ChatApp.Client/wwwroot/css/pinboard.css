@@ -1,0 +1,271 @@
+/* ── Gamified Pinboard Canvas ─────────────────────────── */
+
+.panzoom-wrapper {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: grab;
+    transform-origin: 50% 50%;
+}
+
+.canvas-board {
+    position: absolute;
+    top: -10000px;
+    left: -10000px;
+    width: 20000px;
+    height: 20000px;
+}
+
+/* KHUNG LÀM VIỆC CHÍNH */
+.workspace-frame {
+    position: absolute;
+    top: 9000px;
+    left: 8800px; /* 10000 - 1200 */
+    width: 2400px;
+    height: 1600px;
+    border: 3px dashed rgba(108, 99, 255, 0.4);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-lg);
+    pointer-events: none; /* Không cản trở click/drag */
+    z-index: 0;
+}
+
+.workspace-frame .frame-title {
+    position: absolute;
+    top: -45px;
+    left: 20px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.canvas-svg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let drag events pass through */
+    overflow: visible;
+}
+
+.canvas-connection {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    animation: drawConnection 0.5s ease-out;
+}
+
+@keyframes drawConnection {
+    from { stroke-dasharray: 0 1000; }
+    to { stroke-dasharray: 1000 1000; }
+}
+
+.canvas-board:active {
+    cursor: grabbing;
+}
+
+.drop-target {
+    background-color: rgba(108, 99, 255, 0.1) !important;
+    border: 2px dashed var(--accent) !important;
+}
+
+.chat-bubble.draggable {
+    cursor: grab;
+    transition: transform 0.1s;
+}
+
+.chat-bubble.draggable:active {
+    cursor: grabbing;
+    opacity: 0.8;
+}
+
+/* ── Pinboard Cards ───────────────────────────── */
+
+.pinboard-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 280px;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    cursor: grab;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.pinboard-card:active {
+    cursor: grabbing;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    transform: scale(0.9);
+}
+
+/* ── Hiệu ứng đang chờ kết nối ── */
+.card-connecting {
+    animation: pulse-connect 1.5s infinite;
+    border-color: var(--accent) !important;
+}
+
+@keyframes pulse-connect {
+    0% {
+        box-shadow: 0 0 0 0 rgba(108, 99, 255, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(108, 99, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(108, 99, 255, 0);
+    }
+}
+
+.pinboard-card.dragging {
+    transition: box-shadow 0.2s ease; /* Tắt transform transition để không bị giật lác (lag) khi kéo */
+}
+
+.pinboard-card.sticky-note {
+    background: rgba(255, 224, 102, 0.08);
+    border-color: rgba(255, 224, 102, 0.2);
+}
+
+.pinboard-card.task-card {
+    background: rgba(108, 99, 255, 0.05);
+    border-color: rgba(108, 99, 255, 0.15);
+}
+
+.pinboard-card.task-card.completed {
+    opacity: 0.7;
+    background: rgba(34, 211, 160, 0.1);
+    border-color: rgba(34, 211, 160, 0.3);
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.task-header, .note-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.task-toolbar {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.pinboard-card:hover .task-toolbar {
+    opacity: 1;
+}
+
+.btn-tool {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s ease;
+}
+
+.btn-tool:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.task-deadline {
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
+.task-deadline.overdue {
+    color: var(--text-danger);
+    background: rgba(255, 79, 109, 0.1);
+}
+
+.task-content, .note-content {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    word-break: break-word;
+    cursor: text;
+}
+
+.edit-textarea {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--accent);
+    color: var(--text-main);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: none;
+    outline: none;
+    min-height: 80px;
+    margin-bottom: 16px;
+}
+
+.task-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-complete-task {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-complete-task:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 99, 255, 0.25);
+}
+
+.btn-complete-task:active {
+    transform: translateY(0);
+}
+
+.task-done-badge {
+    color: var(--text-success);
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+/* ── Panel Transition ───────────────────────────── */
+.canvas-panel {
+    position: relative;
+    transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+    height: 100vh;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.canvas-panel.closed {
+    width: 0vw;
+    opacity: 0;
+    border-left: none;
+}
+
+.canvas-panel.open {
+    width: 45vw;
+    opacity: 1;
+}

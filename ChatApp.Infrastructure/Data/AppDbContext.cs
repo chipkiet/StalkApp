@@ -16,6 +16,8 @@ public class AppDbContext : DbContext
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     public DbSet<Call> Calls => Set<Call>();
+    public DbSet<PinboardItem> PinboardItems => Set<PinboardItem>();
+    public DbSet<PinboardConnection> PinboardConnections => Set<PinboardConnection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

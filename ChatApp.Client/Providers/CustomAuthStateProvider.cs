@@ -22,7 +22,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
     {
         try
         {
-            var token = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", TOKEN_KEY);
+            var token = await _jsRuntime.InvokeAsync<string>("sessionStorage.getItem", TOKEN_KEY);
             if (string.IsNullOrWhiteSpace(token))
             {
                 _httpClient.DefaultRequestHeaders.Authorization = null;
@@ -42,7 +42,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
                 if (expTime <= DateTime.UtcNow)
                 {
                     // Token expired
-                    await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", TOKEN_KEY);
+                    await _jsRuntime.InvokeVoidAsync("sessionStorage.removeItem", TOKEN_KEY);
                     _httpClient.DefaultRequestHeaders.Authorization = null;
                     return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
                 }
@@ -60,7 +60,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
 
     public async Task MarkUserAsAuthenticated(string token)
     {
-        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", TOKEN_KEY, token);
+        await _jsRuntime.InvokeVoidAsync("sessionStorage.setItem", TOKEN_KEY, token);
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var authState = Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt"))));
         NotifyAuthenticationStateChanged(authState);
@@ -68,7 +68,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
 
     public async Task MarkUserAsLoggedOut()
     {
-        await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", TOKEN_KEY);
+        await _jsRuntime.InvokeVoidAsync("sessionStorage.removeItem", TOKEN_KEY);
         _httpClient.DefaultRequestHeaders.Authorization = null;
         var authState = Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity())));
         NotifyAuthenticationStateChanged(authState);

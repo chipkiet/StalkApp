@@ -18,9 +18,14 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
+    // Gamification properties
+    public int KarmaPoints { get; set; } = 0;
+    public string? GamificationTitle { get; set; } // e.g. "Kẻ hủy diệt Deadline"
+
     // Navigation properties
     public ICollection<Participant> Participants { get; set; } = new List<Participant>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();
     public ICollection<MessageReaction> MessageReactions { get; set; } = new List<MessageReaction>();
     public ICollection<Call> CallsInitiated { get; set; } = new List<Call>();
+    public ICollection<PinboardItem> AssignedTasks { get; set; } = new List<PinboardItem>();
 }

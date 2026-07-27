@@ -1,0 +1,170 @@
+@using ChatApp.Shared.DTOs.Pinboard
+@using ChatApp.Shared.Enums
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<div class="panzoom-wrapper" id="pinboard-canvas">
+    <div class="canvas-board" id="canvas-board-inner">
+        
+        <svg class="canvas-svg-layer">
+        <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1.5" fill="rgba(150, 150, 150, 0.2)" />
+            </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+        
+        @if (Connections != null && Items != null)
+        {
+            @foreach (var conn in Connections)
+            {
+                var src = Items.FirstOrDefault(i => i.Id == conn.SourceItemId);
+                var tgt = Items.FirstOrDefault(i => i.Id == conn.TargetItemId);
+                if (src != null && tgt != null)
+                {
+                    // Tạm thời hardcode offset tới tâm thẻ (width: 300, height: 200)
+                    var x1 = src.PositionX + 150; 
+                    var y1 = src.PositionY + 100;
+                    var x2 = tgt.PositionX + 150;
+                    var y2 = tgt.PositionY + 100;
+                    var cx1 = x1 + Math.Abs(x2 - x1) / 2;
+                    var cy1 = y1;
+                    var cx2 = x2 - Math.Abs(x2 - x1) / 2;
+                    var cy2 = y2;
+                    
+                    <path @key="conn.Id" d="M @x1 @y1 C @cx1 @cy1, @cx2 @cy2, @x2 @y2" 
+                          fill="none" 
+                          stroke="var(--accent)" 
+                          stroke-width="3" 
+                          class="canvas-connection" />
+                }
+            }
+        }
+    </svg>
+
+    <!-- ══ KHUNG LÀM VIỆC CHÍNH ══ -->
+    <div class="workspace-frame">
+        <div class="frame-title">Khung làm việc chính</div>
+    </div>
+
+    @if (Items != null)
+    {
+        @foreach (var item in Items)
+        {
+            bool isConnecting = connectingSourceId == item.Id;
+            if (item.Type == PinboardItemType.Task)
+            {
+                <TaskCard @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskCompleted="HandleTaskCompleted" OnTaskDeleted="HandleItemDeleted" OnContentUpdated="HandleContentUpdated" />
+            }
+            else
+            {
+                <StickyNote @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskDeleted="HandleItemDeleted" OnContentUpdated="HandleContentUpdated" />
+            }
+        }
+    }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<PinboardItemDto> Items { get; set; } = new();
+
+    [Parameter]
+    public List<PinboardConnectionDto> Connections { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<Guid> OnTaskCompleted { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnItemDeleted { get; set; }
+
+    [Parameter]
+    public EventCallback<(Guid id, string content)> OnItemContentUpdated { get; set; }
+
+    [Parameter]
+    public EventCallback<(Guid sourceId, Guid targetId)> OnConnectionCreated { get; set; }
+
+    private Guid? connectingSourceId = null;
+
+    [Parameter]
+    public EventCallback<(Guid, double, double)> OnItemMoved { get; set; }
+
+    [Parameter]
+    public EventCallback<(Guid, string, double, double)> OnItemCreatedFromDrop { get; set; }
+
+    private DotNetObjectReference<CanvasBoard>? _objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("canvasPhysics.initCanvas", _objRef, "pinboard-canvas");
+            await JS.InvokeVoidAsync("canvasPhysics.initDraggableCards", _objRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnMessageDropped(string msgId, string content, double x, double y)
+    {
+        if (Guid.TryParse(msgId, out var parsedId))
+        {
+            await OnItemCreatedFromDrop.InvokeAsync((parsedId, content, x, y));
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnCardMoved(string itemId, double x, double y)
+    {
+        if (Guid.TryParse(itemId, out var parsedId))
+        {
+            await OnItemMoved.InvokeAsync((parsedId, x, y));
+        }
+    }
+
+    private async Task HandleTaskCompleted(Guid itemId)
+    {
+        var item = Items?.FirstOrDefault(i => i.Id == itemId);
+        if (item != null)
+        {
+            // Trigger confetti locally first for instant feedback
+            await JS.InvokeVoidAsync("canvasPhysics.triggerConfetti", item.PositionX + 100, item.PositionY + 50);
+        }
+        await OnTaskCompleted.InvokeAsync(itemId);
+    }
+
+    private async Task HandleItemDeleted(Guid itemId)
+    {
+        await OnItemDeleted.InvokeAsync(itemId);
+    }
+
+    private async Task HandleConnectClicked(Guid itemId)
+    {
+        if (connectingSourceId == null)
+        {
+            connectingSourceId = itemId;
+        }
+        else if (connectingSourceId == itemId)
+        {
+            connectingSourceId = null; // Huỷ
+        }
+        else
+        {
+            if (OnConnectionCreated.HasDelegate)
+            {
+                await OnConnectionCreated.InvokeAsync((connectingSourceId.Value, itemId));
+            }
+            connectingSourceId = null;
+        }
+    }
+
+    private async Task HandleContentUpdated((Guid id, string content) data)
+    {
+        await OnItemContentUpdated.InvokeAsync(data);
+    }
+
+    public void Dispose()
+    {
+        _objRef?.Dispose();
+    }
+}

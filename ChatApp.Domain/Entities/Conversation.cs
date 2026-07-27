@@ -16,4 +16,5 @@ public class Conversation
     public ICollection<Participant> Participants { get; set; } = new List<Participant>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();
     public ICollection<Call> Calls { get; set; } = new List<Call>();
+    public ICollection<PinboardItem> PinboardItems { get; set; } = new List<PinboardItem>();
 }

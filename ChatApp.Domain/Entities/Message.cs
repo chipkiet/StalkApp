@@ -30,4 +30,5 @@ public class Message
 
     public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
+    public ICollection<PinboardItem> LinkedPinboardItems { get; set; } = new List<PinboardItem>();
 }
