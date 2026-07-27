@@ -60,4 +60,11 @@ public class ConversationsController : ControllerBase
         }
         return Ok(result);
     }
+
+    [HttpPut("{id}/mute")]
+    public async Task<IActionResult> ToggleMute(Guid id, [FromQuery] Guid userId, [FromQuery] bool isMuted)
+    {
+        await _mediator.Send(new ChatApp.Application.Features.Conversations.Commands.ToggleMute.ToggleMuteCommand(id, userId, isMuted));
+        return Ok();
+    }
 }

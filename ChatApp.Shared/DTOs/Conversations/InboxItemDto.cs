@@ -10,5 +10,6 @@ public record InboxItemDto(
     ConversationType Type,
     string LastMessage,
     DateTime? LastMessageAt,
-    int UnreadCount
+    int UnreadCount,
+    bool IsMuted = false
 );
