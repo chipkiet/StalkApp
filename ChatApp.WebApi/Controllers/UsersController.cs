@@ -102,19 +102,20 @@ public class UsersController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetUserProfile(Guid id)
     {
-        var user = await _userRepository.GetByIdAsync(id);
-        if (user is null)
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? User.FindFirst("sub")?.Value 
+            ?? User.FindFirst("nameid")?.Value;
+            
+        if (!Guid.TryParse(userIdClaim, out var currentUserId))
+            return Unauthorized(new { message = "Token không hợp lệ." });
+
+        var query = new ChatApp.Application.Features.Users.Queries.GetUserProfile.GetUserProfileQuery(id, currentUserId);
+        var userProfile = await _mediator.Send(query);
+
+        if (userProfile is null)
             return NotFound(new { message = "Người dùng không tồn tại." });
 
-        return Ok(new
-        {
-            id = user.Id,
-            displayName = user.DisplayName,
-            username = user.Username,
-            phoneNumber = user.PhoneNumber,
-            avatarUrl = user.AvatarUrl,
-            bio = user.Bio
-        });
+        return Ok(userProfile);
     }
 
     /// <summary>

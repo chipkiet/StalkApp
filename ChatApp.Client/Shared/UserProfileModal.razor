@@ -1,0 +1,300 @@
+@using ChatApp.Shared.DTOs.Users
+@using ChatApp.Shared.Enums
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+@if (IsVisible)
+{
+    <div class="profile-modal-overlay" @onclick="CloseModal">
+        <div class="profile-modal-box" @onclick:stopPropagation="true">
+            @if (isLoading)
+            {
+                <div class="profile-loading">
+                    <span class="spinner"></span>
+                </div>
+            }
+            else if (userProfile != null)
+            {
+                <!-- Nút Đóng -->
+                <button class="btn-close" @onclick="CloseModal">✕</button>
+
+                <div class="profile-header">
+                    <div class="avatar-wrapper">
+                        <div class="avatar-container">
+                            @if (!string.IsNullOrEmpty(userProfile.AvatarUrl))
+                            {
+                                <img class="profile-avatar" src="@userProfile.AvatarUrl" alt="@userProfile.DisplayName" />
+                            }
+                            else
+                            {
+                                <div class="profile-avatar-placeholder">
+                                    <span>@GetInitials(userProfile.DisplayName)</span>
+                                </div>
+                            }
+                        </div>
+                        <span class="presence-indicator @(userProfile.IsOnline ? "online" : "offline")"></span>
+                    </div>
+                </div>
+
+                <div class="profile-body">
+                    <h2 class="profile-name">@userProfile.DisplayName</h2>
+                    @if (!string.IsNullOrEmpty(userProfile.Username))
+                    {
+                        <p class="profile-username">@@@userProfile.Username</p>
+                    }
+
+                    @if (userProfile.IsOnline)
+                    {
+                        <p class="profile-status online-text">Đang hoạt động</p>
+                    }
+                    else if (userProfile.LastSeenAt.HasValue)
+                    {
+                        <p class="profile-status offline-text">Hoạt động @FormatLastSeen(userProfile.LastSeenAt.Value)</p>
+                    }
+                    else
+                    {
+                        <p class="profile-status offline-text">Ngoại tuyến</p>
+                    }
+
+                    @if (!string.IsNullOrEmpty(userProfile.Bio))
+                    {
+                        <div class="profile-section">
+                            <h4 class="section-title">Giới thiệu</h4>
+                            <p class="section-content bio-text">@userProfile.Bio</p>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(userProfile.PhoneNumber))
+                    {
+                        <div class="profile-section">
+                            <h4 class="section-title">Số điện thoại</h4>
+                            <p class="section-content">@userProfile.PhoneNumber</p>
+                        </div>
+                    }
+                </div>
+
+                <div class="profile-footer">
+                    @if (isSelf)
+                    {
+                        <button class="btn profile-btn-secondary" @onclick="GoToEditProfile">Chỉnh sửa hồ sơ</button>
+                    }
+                    else
+                    {
+                        if (userProfile.FriendshipStatus == FriendshipStatus.Accepted)
+                        {
+                            <button class="btn profile-btn-primary" @onclick="MessageUser">💬 Nhắn tin</button>
+                            <button class="btn profile-btn-danger" @onclick="RemoveFriend" disabled="@isActioning">Xóa bạn</button>
+                        }
+                        else if (userProfile.FriendshipStatus == FriendshipStatus.Pending)
+                        {
+                            if (userProfile.IsRequester)
+                            {
+                                <button class="btn profile-btn-secondary" @onclick="RemoveFriend" disabled="@isActioning">Hủy lời mời</button>
+                            }
+                            else
+                            {
+                                <button class="btn profile-btn-primary" @onclick="AcceptRequest" disabled="@isActioning">Chấp nhận</button>
+                                <button class="btn profile-btn-secondary" @onclick="DeclineRequest" disabled="@isActioning">Từ chối</button>
+                            }
+                        }
+                        else
+                        {
+                            <button class="btn profile-btn-primary" @onclick="SendFriendRequest" disabled="@isActioning">➕ Kết bạn</button>
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="profile-error">
+                    <p>Không thể tải thông tin người dùng.</p>
+                    <button class="btn profile-btn-secondary" @onclick="CloseModal">Đóng</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+    
+    [Parameter]
+    public EventCallback OnFriendshipChanged { get; set; }
+
+    public bool IsVisible { get; private set; }
+    private Guid currentUserId;
+    private UserProfileDto? userProfile;
+    private bool isLoading = false;
+    private bool isActioning = false;
+    private bool isSelf = false;
+
+    public async Task OpenAsync(Guid userId)
+    {
+        IsVisible = true;
+        isLoading = true;
+        userProfile = null;
+        StateHasChanged();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var myIdStr = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? authState.User.FindFirst("sub")?.Value
+            ?? authState.User.FindFirst("nameid")?.Value;
+        
+        Guid.TryParse(myIdStr, out currentUserId);
+        isSelf = (userId == currentUserId);
+
+        try
+        {
+            userProfile = await Http.GetFromJsonAsync<UserProfileDto>($"/api/users/{userId}");
+        }
+        catch
+        {
+            userProfile = null;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        IsVisible = false;
+        await OnClose.InvokeAsync();
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        return name[0].ToString().ToUpper();
+    }
+
+    private string FormatLastSeen(DateTime lastSeen)
+    {
+        var diff = DateTime.UtcNow - lastSeen;
+        if (diff.TotalMinutes < 1) return "vừa xong";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} phút trước";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} giờ trước";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays} ngày trước";
+        return lastSeen.ToString("dd/MM/yyyy");
+    }
+
+    private void GoToEditProfile()
+    {
+        CloseModal();
+        Nav.NavigateTo("/profile");
+    }
+
+    private void MessageUser()
+    {
+        CloseModal();
+        Nav.NavigateTo($"/?openChat={userProfile!.Id}");
+    }
+
+    private async Task SendFriendRequest()
+    {
+        if (userProfile == null) return;
+        isActioning = true;
+        try
+        {
+            var dto = new ChatApp.Shared.DTOs.Friends.SendFriendRequestDto { AddresseeId = userProfile.Id };
+            var response = await Http.PostAsJsonAsync("/api/friends/request", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                userProfile.FriendshipStatus = FriendshipStatus.Pending;
+                userProfile.IsRequester = true;
+                await OnFriendshipChanged.InvokeAsync();
+            }
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+
+    private async Task AcceptRequest()
+    {
+        if (userProfile == null) return;
+        isActioning = true;
+        try
+        {
+            // Cần lấy FriendshipId, nhưng DTO UserProfile không lưu FriendshipId.
+            // Sẽ phải gọi API theo UserId
+            var pendingList = await Http.GetFromJsonAsync<List<ChatApp.Shared.DTOs.Friends.FriendDto>>("/api/friends/pending");
+            var req = pendingList?.FirstOrDefault(r => r.UserId == userProfile.Id);
+            if (req != null)
+            {
+                var response = await Http.PutAsync($"/api/friends/{req.FriendshipId}/accept", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    userProfile.FriendshipStatus = FriendshipStatus.Accepted;
+                    await OnFriendshipChanged.InvokeAsync();
+                }
+            }
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+
+    private async Task DeclineRequest()
+    {
+        if (userProfile == null) return;
+        isActioning = true;
+        try
+        {
+            var pendingList = await Http.GetFromJsonAsync<List<ChatApp.Shared.DTOs.Friends.FriendDto>>("/api/friends/pending");
+            var req = pendingList?.FirstOrDefault(r => r.UserId == userProfile.Id);
+            if (req != null)
+            {
+                var response = await Http.PutAsync($"/api/friends/{req.FriendshipId}/decline", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    userProfile.FriendshipStatus = null;
+                    await OnFriendshipChanged.InvokeAsync();
+                }
+            }
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+
+    private async Task RemoveFriend()
+    {
+        if (userProfile == null) return;
+        isActioning = true;
+        try
+        {
+            // Dùng danh sách bạn bè để tìm FriendshipId hoặc dùng endpoint delete theo UserId.
+            // Hiện tại DeleteFriend cần FriendshipId.
+            var friendsList = await Http.GetFromJsonAsync<List<ChatApp.Shared.DTOs.Friends.FriendDto>>("/api/friends");
+            var pendingList = await Http.GetFromJsonAsync<List<ChatApp.Shared.DTOs.Friends.FriendDto>>("/api/friends/pending");
+            
+            var friendshipId = friendsList?.FirstOrDefault(f => f.UserId == userProfile.Id)?.FriendshipId
+                            ?? pendingList?.FirstOrDefault(r => r.UserId == userProfile.Id)?.FriendshipId;
+            
+            if (friendshipId != null)
+            {
+                var response = await Http.DeleteAsync($"/api/friends/{friendshipId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    userProfile.FriendshipStatus = null;
+                    await OnFriendshipChanged.InvokeAsync();
+                }
+            }
+        }
+        finally
+        {
+            isActioning = false;
+        }
+    }
+}
