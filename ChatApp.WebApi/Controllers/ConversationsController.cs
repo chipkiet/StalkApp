@@ -73,6 +73,13 @@ public class ConversationsController : ControllerBase
         catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
         catch (Exception ex) { return BadRequest(ex.Message); }
     }
+
+    [HttpPut("{id}/mute")]
+    public async Task<IActionResult> ToggleMute(Guid id, [FromQuery] Guid userId, [FromQuery] bool isMuted)
+    {
+        await _mediator.Send(new ChatApp.Application.Features.Conversations.Commands.ToggleMute.ToggleMuteCommand(id, userId, isMuted));
+        return Ok();
+    }
 }
 
 public record TogglePinConversationRequest(Guid UserId, bool IsPinned);

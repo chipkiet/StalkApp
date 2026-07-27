@@ -11,5 +11,6 @@ public record InboxItemDto(
     string? LastMessage,
     DateTime? LastMessageAt,
     int UnreadCount,
-    bool IsPinned = false
+    bool IsPinned = false,
+    bool IsMuted = false
 );

@@ -83,7 +83,8 @@ public class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, List<InboxIte
                 lastMsg?.Content ?? "Chưa có tin nhắn",
                 lastMsg?.CreatedAt,
                 0, // UnreadCount (giữ đơn giản MVP)
-                p.IsPinned
+                p.IsPinned,
+                p.IsMuted
             ));
         }
 
