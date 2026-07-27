@@ -579,7 +579,7 @@
                         <div class="profile-card-modern">
                             <div class="profile-card-cover"></div>
                             <div class="profile-card-body">
-                                <div class="profile-card-avatar" style="background-size:cover;background-position:center;@(string.IsNullOrEmpty(p.AvatarUrl) ? "" : $"background-image:url('{p.AvatarUrl}');")">
+                                <div class="profile-card-avatar" style="cursor:pointer;background-size:cover;background-position:center;@(string.IsNullOrEmpty(p.AvatarUrl) ? "" : $"background-image:url('{p.AvatarUrl}');")" @onclick="() => OpenMemberProfile(p.UserId)">
                                     @if (string.IsNullOrEmpty(p.AvatarUrl))
                                     {
                                         <span>@GetInitials(p.DisplayName)</span>
@@ -613,6 +613,8 @@
         </div>
     </div>
 }
+
+<ChatApp.Client.Shared.UserProfileModal @ref="userProfileModal" />
 
 @code {
     // ── Chat state ───────────────────────────────────────────
@@ -704,6 +706,8 @@
         public string? Bio { get; set; }
     }
 
+    private ChatApp.Client.Shared.UserProfileModal userProfileModal = default!;
+
     private async Task OpenProfileModal()
     {
         if (selectedConversation == null) return;
@@ -714,19 +718,34 @@
             {
                 if (selectedConversation.Type == ChatApp.Domain.Enums.ConversationType.Direct)
                 {
-                    conversationParticipants = res.Where(p => p.UserId != currentUserId).ToList();
+                    var otherUser = res.FirstOrDefault(p => p.UserId != currentUserId);
+                    if (otherUser != null)
+                    {
+                        if (userProfileModal != null)
+                        {
+                            await userProfileModal.OpenAsync(otherUser.UserId);
+                        }
+                    }
                 }
                 else
                 {
                     conversationParticipants = res;
+                    showProfileModal = true;
+                    StateHasChanged();
                 }
-                showProfileModal = true;
-                StateHasChanged();
             }
         }
         catch
         {
             // ignore
+        }
+    }
+
+    private async Task OpenMemberProfile(Guid userId)
+    {
+        if (userProfileModal != null)
+        {
+            await userProfileModal.OpenAsync(userId);
         }
     }
 

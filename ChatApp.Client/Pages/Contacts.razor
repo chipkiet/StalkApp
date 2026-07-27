@@ -113,7 +113,7 @@
                             @foreach (var friend in group.OrderBy(f => f.DisplayName))
                             {
                                 <div class="friend-card @(friend.IsOnline ? "online" : "")">
-                                    <div class="friend-avatar-wrap">
+                                    <div class="friend-avatar-wrap" @onclick="() => OpenProfile(friend.UserId)" style="cursor: pointer;" title="Xem hồ sơ">
                                         @if (!string.IsNullOrEmpty(friend.AvatarUrl))
                                         {
                                             <img class="friend-avatar-img" src="@friend.AvatarUrl" alt="@friend.DisplayName" />
@@ -198,7 +198,7 @@
                     @foreach (var req in pendingRequests)
                     {
                         <div class="pending-card">
-                            <div class="friend-avatar-wrap">
+                            <div class="friend-avatar-wrap" @onclick="() => OpenProfile(req.UserId)" style="cursor: pointer;" title="Xem hồ sơ">
                                 @if (!string.IsNullOrEmpty(req.AvatarUrl))
                                 {
                                     <img class="friend-avatar-img" src="@req.AvatarUrl" alt="@req.DisplayName" />
@@ -281,7 +281,7 @@
                 @if (searchResult != null)
                 {
                     <div class="search-result-card">
-                        <div class="friend-avatar-wrap large">
+                        <div class="friend-avatar-wrap large" @onclick="() => OpenProfile(searchResult.Id)" style="cursor: pointer;" title="Xem hồ sơ">
                             @if (!string.IsNullOrEmpty(searchResult.AvatarUrl))
                             {
                                 <img class="friend-avatar-img" src="@searchResult.AvatarUrl" alt="@searchResult.DisplayName" />
@@ -348,6 +348,8 @@
     </div>
 }
 
+<ChatApp.Client.Shared.UserProfileModal @ref="userProfileModal" OnFriendshipChanged="HandleFriendshipChanged" />
+
 @code {
     private string activeTab = "friends";
     private string friendsSearchTerm = "";
@@ -371,6 +373,9 @@
 
     // Remove confirm
     private FriendDto? removingFriend;
+    
+    // Profile Modal
+    private ChatApp.Client.Shared.UserProfileModal userProfileModal = default!;
 
     // SignalR
     private HubConnection? hubConnection;
@@ -652,6 +657,22 @@
     private void GoToChat(Guid userId)
     {
         Nav.NavigateTo($"/?openChat={userId}");
+    }
+    
+    // ── Profile Modal ──
+    private async Task OpenProfile(Guid userId)
+    {
+        if (userProfileModal != null)
+        {
+            await userProfileModal.OpenAsync(userId);
+        }
+    }
+
+    private async Task HandleFriendshipChanged()
+    {
+        // Reload friends and pending requests if a change happens in modal
+        await LoadFriendsAsync();
+        await LoadPendingAsync();
     }
 
     // ── Helpers ──
