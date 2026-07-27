@@ -12,6 +12,7 @@ public class Participant
     public DateTime JoinedAt { get; set; }
     public bool HasDeleted { get; set; } = false;
     public DateTime? ClearedAt { get; set; }
+    public bool IsPinned { get; set; } = false;
     public bool IsMuted { get; set; } = false;
 
     // Navigation properties

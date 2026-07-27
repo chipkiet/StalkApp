@@ -83,11 +83,12 @@ public class GetInboxQueryHandler : IRequestHandler<GetInboxQuery, List<InboxIte
                 lastMsg?.Content ?? "Chưa có tin nhắn",
                 lastMsg?.CreatedAt,
                 0, // UnreadCount (giữ đơn giản MVP)
-                p.IsMuted // Truyền IsMuted
+                p.IsPinned,
+                p.IsMuted
             ));
         }
 
-        // Sắp xếp theo tin nhắn mới nhất lên đầu
-        return result.OrderByDescending(x => x.LastMessageAt).ToList();
+        // Sắp xếp theo IsPinned trước, sau đó theo tin nhắn mới nhất
+        return result.OrderByDescending(x => x.IsPinned).ThenByDescending(x => x.LastMessageAt).ToList();
     }
 }

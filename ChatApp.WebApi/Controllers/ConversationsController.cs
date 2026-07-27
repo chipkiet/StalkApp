@@ -61,6 +61,19 @@ public class ConversationsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{conversationId}/pin")]
+    public async Task<IActionResult> TogglePinConversation(Guid conversationId, [FromBody] TogglePinConversationRequest body)
+    {
+        try
+        {
+            var command = new ChatApp.Application.Features.Conversations.Commands.TogglePinConversation.TogglePinConversationCommand(conversationId, body.UserId, body.IsPinned);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
+        catch (Exception ex) { return BadRequest(ex.Message); }
+    }
+
     [HttpPut("{id}/mute")]
     public async Task<IActionResult> ToggleMute(Guid id, [FromQuery] Guid userId, [FromQuery] bool isMuted)
     {
@@ -68,3 +81,5 @@ public class ConversationsController : ControllerBase
         return Ok();
     }
 }
+
+public record TogglePinConversationRequest(Guid UserId, bool IsPinned);
