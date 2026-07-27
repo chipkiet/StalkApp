@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Call> Calls => Set<Call>();
     public DbSet<PinboardItem> PinboardItems => Set<PinboardItem>();
     public DbSet<PinboardConnection> PinboardConnections => Set<PinboardConnection>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -3,6 +3,7 @@ using System;
 using ChatApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ChatApp.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260727163050_AddFriendshipTable")]
+    partial class AddFriendshipTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -248,96 +251,6 @@ namespace ChatApp.Infrastructure.Migrations
                     b.ToTable("Participants");
                 });
 
-            modelBuilder.Entity("ChatApp.Domain.Entities.PinboardConnection", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ConversationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Label")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid>("SourceItemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TargetItemId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConversationId");
-
-                    b.HasIndex("SourceItemId");
-
-                    b.HasIndex("TargetItemId");
-
-                    b.ToTable("PinboardConnections", (string)null);
-                });
-
-            modelBuilder.Entity("ChatApp.Domain.Entities.PinboardItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AssignedToUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Content")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<Guid>("ConversationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("Deadline")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid?>("LinkedMessageId")
-                        .HasColumnType("uuid");
-
-                    b.Property<double>("PositionX")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("PositionY")
-                        .HasColumnType("double precision");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ZIndex")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignedToUserId");
-
-                    b.HasIndex("ConversationId");
-
-                    b.HasIndex("LinkedMessageId");
-
-                    b.ToTable("PinboardItems");
-                });
-
             modelBuilder.Entity("ChatApp.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -360,14 +273,8 @@ namespace ChatApp.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("GamificationTitle")
-                        .HasColumnType("text");
-
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
-
-                    b.Property<int>("KarmaPoints")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
@@ -529,50 +436,6 @@ namespace ChatApp.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("ChatApp.Domain.Entities.PinboardConnection", b =>
-                {
-                    b.HasOne("ChatApp.Domain.Entities.PinboardItem", "SourceItem")
-                        .WithMany()
-                        .HasForeignKey("SourceItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ChatApp.Domain.Entities.PinboardItem", "TargetItem")
-                        .WithMany()
-                        .HasForeignKey("TargetItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SourceItem");
-
-                    b.Navigation("TargetItem");
-                });
-
-            modelBuilder.Entity("ChatApp.Domain.Entities.PinboardItem", b =>
-                {
-                    b.HasOne("ChatApp.Domain.Entities.User", "AssignedToUser")
-                        .WithMany("AssignedTasks")
-                        .HasForeignKey("AssignedToUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ChatApp.Domain.Entities.Conversation", "Conversation")
-                        .WithMany("PinboardItems")
-                        .HasForeignKey("ConversationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ChatApp.Domain.Entities.Message", "LinkedMessage")
-                        .WithMany("LinkedPinboardItems")
-                        .HasForeignKey("LinkedMessageId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("AssignedToUser");
-
-                    b.Navigation("Conversation");
-
-                    b.Navigation("LinkedMessage");
-                });
-
             modelBuilder.Entity("ChatApp.Domain.Entities.Conversation", b =>
                 {
                     b.Navigation("Calls");
@@ -580,8 +443,6 @@ namespace ChatApp.Infrastructure.Migrations
                     b.Navigation("Messages");
 
                     b.Navigation("Participants");
-
-                    b.Navigation("PinboardItems");
                 });
 
             modelBuilder.Entity("ChatApp.Domain.Entities.Message", b =>
@@ -590,8 +451,6 @@ namespace ChatApp.Infrastructure.Migrations
 
                     b.Navigation("ForwardedMessages");
 
-                    b.Navigation("LinkedPinboardItems");
-
                     b.Navigation("Reactions");
 
                     b.Navigation("Replies");
@@ -599,8 +458,6 @@ namespace ChatApp.Infrastructure.Migrations
 
             modelBuilder.Entity("ChatApp.Domain.Entities.User", b =>
                 {
-                    b.Navigation("AssignedTasks");
-
                     b.Navigation("CallsInitiated");
 
                     b.Navigation("FriendshipsReceived");

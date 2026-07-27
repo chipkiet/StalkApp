@@ -59,7 +59,16 @@
                 {
                     <div class="conversation-item @(selectedId == item.ConversationId ? "active" : "")"
                          @onclick="() => SelectConversation(item)">
-                        <div class="conv-avatar">@GetInitials(item.Title)</div>
+                        <div class="conv-avatar">
+                            @if (!string.IsNullOrEmpty(item.AvatarUrl))
+                            {
+                                <img src="@item.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                            }
+                            else
+                            {
+                                @GetInitials(item.Title)
+                            }
+                        </div>
                         <div class="conv-info">
                             <div class="conv-top">
                                 <span class="conv-name">@(item.Title ?? "Cuộc trò chuyện")</span>
@@ -99,7 +108,16 @@
         {
             <div class="chat-header">
                 <div class="chat-header-clickable" @onclick="OpenProfileModal" style="display: flex; align-items: center; gap: 12px; cursor: pointer; flex-grow: 1;">
-                    <div class="chat-header-avatar">@GetInitials(selectedConversation.Title)</div>
+                    <div class="chat-header-avatar">
+                        @if (!string.IsNullOrEmpty(selectedConversation.AvatarUrl))
+                        {
+                            <img src="@selectedConversation.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                        }
+                        else
+                        {
+                            @GetInitials(selectedConversation.Title)
+                        }
+                    </div>
                     <div class="chat-header-info">
                         <div class="chat-header-name">@(selectedConversation.Title ?? "Cuộc trò chuyện")</div>
                         <div class="chat-header-status">STALKchat</div>
@@ -138,7 +156,16 @@
                                 }
                                 else
                                 {
-                                    <div class="msg-avatar">@GetInitials(selectedConversation?.Title)</div>
+                                    <div class="msg-avatar">
+                                        @if (!string.IsNullOrEmpty(selectedConversation?.AvatarUrl))
+                                        {
+                                            <img src="@selectedConversation.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                        }
+                                        else
+                                        {
+                                            @GetInitials(selectedConversation?.Title)
+                                        }
+                                    </div>
                                 }
                                 <div class="msg-content-wrapper">
                                     <div class="msg-bubble chat-bubble draggable" data-msg-id="@msg.Id">
@@ -366,7 +393,16 @@
                         @foreach (var item in forwardInboxItems)
                         {
                             <div class="forward-item">
-                                <div class="forward-avatar">@GetInitials(item.Title)</div>
+                                <div class="forward-avatar">
+                                    @if (!string.IsNullOrEmpty(item.AvatarUrl))
+                                    {
+                                        <img src="@item.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                    }
+                                    else
+                                    {
+                                        @GetInitials(item.Title)
+                                    }
+                                </div>
                                 <div class="forward-name">@(item.Title ?? "Cuộc trò chuyện")</div>
                                 <button class="btn-forward-send" @onclick="() => ForwardMessage(item.ConversationId)" disabled="@isForwarding">Gửi</button>
                             </div>
@@ -431,7 +467,16 @@
                     @if (foundUser != null)
                     {
                         <div class="found-user-card">
-                            <div class="found-user-avatar">@GetInitials(foundUser.DisplayName)</div>
+                            <div class="found-user-avatar">
+                                @if (!string.IsNullOrEmpty(foundUser.AvatarUrl))
+                                {
+                                    <img src="@foundUser.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                }
+                                else
+                                {
+                                    @GetInitials(foundUser.DisplayName)
+                                }
+                            </div>
                             <div class="found-user-info">
                                 <div class="found-user-name">@foundUser.DisplayName</div>
                                 <div class="found-user-phone">@foundUser.PhoneNumber</div>
@@ -471,7 +516,16 @@
                     @if (foundUser != null)
                     {
                         <div class="found-user-card">
-                            <div class="found-user-avatar">@GetInitials(foundUser.DisplayName)</div>
+                            <div class="found-user-avatar">
+                                @if (!string.IsNullOrEmpty(foundUser.AvatarUrl))
+                                {
+                                    <img src="@foundUser.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                }
+                                else
+                                {
+                                    @GetInitials(foundUser.DisplayName)
+                                }
+                            </div>
                             <div class="found-user-info">
                                 <div class="found-user-name">@foundUser.DisplayName</div>
                                 <div class="found-user-phone">@foundUser.PhoneNumber</div>
@@ -487,7 +541,16 @@
                             @foreach (var m in groupMembers)
                             {
                                 <div class="group-member-item">
-                                    <div class="found-user-avatar" style="width:32px;height:32px;font-size:.7rem;">@GetInitials(m.DisplayName)</div>
+                                    <div class="found-user-avatar" style="width:32px;height:32px;font-size:.7rem;">
+                                        @if (!string.IsNullOrEmpty(m.AvatarUrl))
+                                        {
+                                            <img src="@m.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                        }
+                                        else
+                                        {
+                                            @GetInitials(m.DisplayName)
+                                        }
+                                    </div>
                                     <span>@m.DisplayName</span>
                                     <button class="btn-remove-member" @onclick="() => groupMembers.Remove(m)">✕</button>
                                 </div>
@@ -532,7 +595,7 @@
                         <div class="profile-card-modern">
                             <div class="profile-card-cover"></div>
                             <div class="profile-card-body">
-                                <div class="profile-card-avatar" style="@(string.IsNullOrEmpty(p.AvatarUrl) ? "" : $"background-image:url('{p.AvatarUrl}');")">
+                                <div class="profile-card-avatar" style="background-size:cover;background-position:center;@(string.IsNullOrEmpty(p.AvatarUrl) ? "" : $"background-image:url('{p.AvatarUrl}');")">
                                     @if (string.IsNullOrEmpty(p.AvatarUrl))
                                     {
                                         <span>@GetInitials(p.DisplayName)</span>
@@ -768,6 +831,23 @@
             {
                 if (messages == null) messages = new List<MessageDto>();
                 messages.Add(message);
+
+                if (inboxItems != null)
+                {
+                    var conv = inboxItems.FirstOrDefault(c => c.ConversationId == message.ConversationId);
+                    if (conv != null)
+                    {
+                        var updatedConv = conv with { LastMessage = message.Content ?? "Tệp đính kèm", LastMessageAt = message.CreatedAt };
+                        var idx = inboxItems.IndexOf(conv);
+                        if (idx != -1) inboxItems[idx] = updatedConv;
+                        if (selectedConversation?.ConversationId == updatedConv.ConversationId)
+                        {
+                            selectedConversation = updatedConv;
+                        }
+                        inboxItems = inboxItems.OrderByDescending(x => x.LastMessageAt).ToList();
+                    }
+                }
+
                 InvokeAsync(StateHasChanged);
             }
             else

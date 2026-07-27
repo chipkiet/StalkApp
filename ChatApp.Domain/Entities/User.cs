@@ -28,4 +28,8 @@ public class User
     public ICollection<MessageReaction> MessageReactions { get; set; } = new List<MessageReaction>();
     public ICollection<Call> CallsInitiated { get; set; } = new List<Call>();
     public ICollection<PinboardItem> AssignedTasks { get; set; } = new List<PinboardItem>();
+
+    // Friendship navigation
+    public ICollection<Friendship> FriendshipsSent { get; set; } = new List<Friendship>();
+    public ICollection<Friendship> FriendshipsReceived { get; set; } = new List<Friendship>();
 }
