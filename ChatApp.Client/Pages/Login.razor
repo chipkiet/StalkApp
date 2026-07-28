@@ -91,6 +91,7 @@
                     var idx = i;
                     <input class="otp-digit @(otpDigits[idx] != '\0' ? "filled" : "")"
                            id="otp-@idx"
+                           @ref="otpInputs[idx]"
                            type="text"
                            inputmode="numeric"
                            maxlength="1"
@@ -152,6 +153,7 @@
     private int step = 1;
     private string phoneNumber = "";
     private char[] otpDigits = new char[6];
+    private ElementReference[] otpInputs = new ElementReference[6];
     private bool isLoading = false;
     private string errorMessage = "";
     
@@ -323,7 +325,7 @@
         if (e.Key == "Enter") await SendOtp();
     }
 
-    private void OnOtpInput(ChangeEventArgs e, int index)
+    private async Task OnOtpInput(ChangeEventArgs e, int index)
     {
         var val = e.Value?.ToString() ?? "";
         if (val.Length > 0 && char.IsDigit(val[^1]))
@@ -332,7 +334,7 @@
             // Auto focus next
             if (index < 5)
             {
-                // Focus next via JS (simplified – will auto-navigate)
+                await otpInputs[index + 1].FocusAsync();
             }
         }
         else
@@ -345,7 +347,14 @@
     private async Task OnOtpKeyDown(KeyboardEventArgs e, int index)
     {
         if (e.Key == "Enter" && OtpCode.Length == 6)
+        {
             await VerifyOtp();
+        }
+        else if (e.Key == "Backspace" && otpDigits[index] == '\0' && index > 0)
+        {
+            // Focus previous if current is empty and user hits backspace
+            await otpInputs[index - 1].FocusAsync();
+        }
     }
 
     // ── Resend Countdown ────────────────────────────────────────────────────

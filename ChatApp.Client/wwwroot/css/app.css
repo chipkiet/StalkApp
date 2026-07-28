@@ -2638,10 +2638,10 @@ code {
     padding: 14px 16px;
     min-width: 300px;
     max-width: 360px;
-    background: rgba(19, 22, 30, 0.95);
-    border: 1px solid rgba(108, 99, 255, 0.35);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: var(--shadow-soft);
     backdrop-filter: blur(20px);
     cursor: pointer;
     animation: toastSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -2650,7 +2650,7 @@ code {
 
 .toast-item:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(108, 99, 255, 0.5);
+    box-shadow: var(--shadow-soft), var(--focus-ring);
 }
 
 .toast-item.removing {
@@ -2760,4 +2760,59 @@ code {
     to {
         width: 0%;
     }
+}
+
+/* ── Mention Dropdown ───────────────────────── */
+.mention-dropdown {
+    position: absolute;
+    bottom: calc(100% + 15px);
+    left: 15px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 0;
+    min-width: 200px;
+    max-height: 250px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.mention-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background var(--transition);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.mention-item:hover {
+    background: var(--hover-bg);
+}
+
+.mention-item-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.mention-item-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

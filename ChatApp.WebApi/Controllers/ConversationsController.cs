@@ -44,12 +44,13 @@ public class ConversationsController : ControllerBase
     {
         var participants = await participantRepo.FindAsync(p => p.ConversationId == id);
         var result = new System.Collections.Generic.List<object>();
-        foreach(var p in participants)
+        foreach (var p in participants)
         {
             var user = await userRepo.GetByIdAsync(p.UserId);
             if (user != null)
             {
-                result.Add(new {
+                result.Add(new
+                {
                     userId = user.Id,
                     displayName = user.DisplayName,
                     phoneNumber = user.PhoneNumber,
