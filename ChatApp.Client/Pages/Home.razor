@@ -270,7 +270,28 @@
                 </div>
             }
 
-            <div class="chat-input-area">
+            <div class="chat-input-area" style="position: relative;">
+                @if (showMentionPopup && mentionCandidates != null && mentionCandidates.Any())
+                {
+                    <div class="mention-dropdown">
+                        @foreach (var p in mentionCandidates)
+                        {
+                            <div class="mention-item" @onclick="() => InsertMention(p)">
+                                <div class="mention-item-avatar">
+                                    @if (!string.IsNullOrEmpty(p.AvatarUrl))
+                                    {
+                                        <img src="@p.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+                                    }
+                                    else
+                                    {
+                                        @GetInitials(p.DisplayName)
+                                    }
+                                </div>
+                                <div class="mention-item-name">@p.DisplayName</div>
+                            </div>
+                        }
+                    </div>
+                }
                 <button class="btn-attach" @onclick="TriggerFileInput" title="Đính kèm file/ảnh">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                 </button>
@@ -279,8 +300,8 @@
                 <input class="chat-input"
                        type="text"
                        placeholder="Nhập tin nhắn..."
-                       @bind="newMessageContent"
-                       @bind:event="oninput"
+                       value="@newMessageContent"
+                       @oninput="HandleChatInput"
                        @onkeydown="OnMessageKeyDown" />
                 <button class="chat-send-btn" 
                         @onclick="SendMessage" 
@@ -647,6 +668,11 @@
     private string newMessageContent = "";
     private bool isUploading = false;
     
+    // Mention state
+    private bool showMentionPopup = false;
+    private List<ParticipantProfileDto>? mentionCandidates;
+    private List<Guid> currentMentions = new();
+    
     // ── Pinboard State ───────────────────────────────────────
     private List<PinboardItemDto> MyCanvasItems = new();
     private List<PinboardConnectionDto> MyCanvasConnections = new();
@@ -886,14 +912,37 @@
                 if (inboxItems != null)
                 {
                     var inboxItem = inboxItems.FirstOrDefault(i => i.ConversationId == message.ConversationId);
-                    if (inboxItem != null && !inboxItem.IsMuted)
+                    bool isMentioned = message.MentionedUserIds != null && message.MentionedUserIds.Contains(currentUserId);
+                    if (inboxItem != null && (!inboxItem.IsMuted || isMentioned))
                     {
-                        NotificationSvc.Push(new ChatApp.Client.Layout.NotificationItem
+                        InvokeAsync(async () =>
                         {
-                            ConversationId = message.ConversationId,
-                            ConversationTitle = inboxItem.Title ?? "Tin nhắn mới",
-                            MessagePreview = message.Content ?? "Đã gửi một tệp",
-                            Timestamp = message.CreatedAt
+                            string senderName = "Ai đó";
+                            try
+                            {
+                                var userDto = await Http.GetFromJsonAsync<FoundUserDto>($"/api/users/{message.SenderId}");
+                                if (userDto != null)
+                                {
+                                    senderName = !string.IsNullOrWhiteSpace(userDto.DisplayName) 
+                                        ? userDto.DisplayName 
+                                        : (userDto.Username ?? "Ai đó");
+                                }
+                            }
+                            catch { }
+
+                            var previewText = message.Content ?? "Đã gửi một tệp";
+                            if (inboxItem.Type == ChatApp.Domain.Enums.ConversationType.Group)
+                            {
+                                previewText = $"{senderName}: {previewText}";
+                            }
+
+                            NotificationSvc.Push(new ChatApp.Client.Layout.NotificationItem
+                            {
+                                ConversationId = message.ConversationId,
+                                ConversationTitle = isMentioned ? "💬 Ai đó nhắc đến bạn" : (inboxItem.Title ?? "Tin nhắn mới"),
+                                MessagePreview = previewText,
+                                Timestamp = message.CreatedAt
+                            });
                         });
                     }
                 }
@@ -1148,12 +1197,14 @@
             var msgTask = Http.GetFromJsonAsync<List<MessageDto>>($"/api/messages/{selectedId}/user/{currentUserId}");
             var canvasTask = Http.GetFromJsonAsync<List<PinboardItemDto>>($"/api/pinboard/conversation/{selectedId}");
             var connTask = Http.GetFromJsonAsync<List<PinboardConnectionDto>>($"/api/pinboard/{selectedId}/connections");
+            var partTask = Http.GetFromJsonAsync<List<ParticipantProfileDto>>($"/api/conversations/{selectedId}/participants");
             
-            await Task.WhenAll(msgTask, canvasTask, connTask);
+            await Task.WhenAll(msgTask, canvasTask, connTask, partTask);
             
             messages = msgTask.Result ?? new List<MessageDto>();
             MyCanvasItems = canvasTask.Result ?? new List<PinboardItemDto>();
             MyCanvasConnections = connTask.Result ?? new List<PinboardConnectionDto>();
+            conversationParticipants = partTask.Result ?? new List<ParticipantProfileDto>();
         }
         catch
         {
@@ -1409,6 +1460,55 @@
         }
     }
 
+    private void HandleChatInput(ChangeEventArgs e)
+    {
+        newMessageContent = e.Value?.ToString() ?? "";
+
+        if (!string.IsNullOrEmpty(newMessageContent))
+        {
+            var parts = newMessageContent.Split(' ');
+            var lastWord = parts.Last();
+            
+            if (lastWord.StartsWith("@") && conversationParticipants != null)
+            {
+                var query = lastWord.Substring(1).ToLower();
+                mentionCandidates = conversationParticipants
+                    .Where(p => p.UserId != currentUserId && (p.DisplayName?.ToLower().Contains(query) == true || p.PhoneNumber?.Contains(query) == true))
+                    .ToList();
+                
+                showMentionPopup = true;
+            }
+            else
+            {
+                showMentionPopup = false;
+            }
+        }
+        else
+        {
+            showMentionPopup = false;
+        }
+    }
+
+    private void InsertMention(ParticipantProfileDto p)
+    {
+        if (string.IsNullOrEmpty(p.DisplayName)) return;
+        
+        var parts = newMessageContent.Split(' ').ToList();
+        parts.RemoveAt(parts.Count - 1); // Remove the @query part
+        
+        var mentionText = $"@{p.DisplayName} ";
+        parts.Add(mentionText);
+        
+        newMessageContent = string.Join(" ", parts);
+        if (!currentMentions.Contains(p.UserId))
+        {
+            currentMentions.Add(p.UserId);
+        }
+        
+        showMentionPopup = false;
+        StateHasChanged();
+    }
+
     private async Task OnMessageKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !e.ShiftKey)
@@ -1434,8 +1534,10 @@
                 SenderId = currentUserId,
                 MessageType = MessageType.Text,
                 Content = content,
-                ReplyToMessageId = replyingToMessage?.Id
+                ReplyToMessageId = replyingToMessage?.Id,
+                MentionedUserIds = currentMentions.ToList()
             };
+            currentMentions.Clear();
             ClearReply();
             await hubConnection.SendAsync("SendMessage", command);
         }

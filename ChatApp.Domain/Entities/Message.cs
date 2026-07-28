@@ -17,6 +17,7 @@ public class Message
     public bool IsDeleted { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public List<Guid>? MentionedUserIds { get; set; } = new();
 
     // Navigation properties
     public Conversation Conversation { get; set; } = null!;

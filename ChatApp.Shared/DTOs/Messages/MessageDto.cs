@@ -20,5 +20,6 @@ public record MessageDto(
     Guid? ReplyToMessageId = null,
     ReplyPreviewDto? ReplyTo = null,
     Guid? ForwardedFromMessageId = null,
-    bool IsForwarded = false
+    bool IsForwarded = false,
+    List<Guid>? MentionedUserIds = null
 );

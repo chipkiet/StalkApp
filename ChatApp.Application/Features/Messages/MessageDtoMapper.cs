@@ -58,7 +58,8 @@ public static class MessageDtoMapper
             message.ReplyToMessageId,
             replyTo,
             message.ForwardedFromMessageId,
-            message.ForwardedFromMessageId.HasValue
+            message.ForwardedFromMessageId.HasValue,
+            message.MentionedUserIds
         );
     }
 }

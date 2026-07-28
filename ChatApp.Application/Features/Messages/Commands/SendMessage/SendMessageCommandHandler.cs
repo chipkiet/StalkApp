@@ -48,7 +48,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             ReplyToMessageId = request.ReplyToMessageId,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false,
-            IsPinned = false
+            IsPinned = false,
+            MentionedUserIds = request.MentionedUserIds ?? new List<Guid>()
         };
 
         await _messageRepository.AddAsync(message);
