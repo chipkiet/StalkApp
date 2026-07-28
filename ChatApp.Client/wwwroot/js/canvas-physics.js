@@ -23,7 +23,7 @@ window.canvasPhysics = {
         let startY = 0;
         let marqueeDiv = null;
 
-        canvasElem.parentElement.addEventListener('mousedown', (e) => {
+        canvasElem.parentElement.addEventListener('pointerdown', (e) => {
             if (e.ctrlKey && e.button === 0) {
                 // Prevent Panzoom
                 e.stopPropagation();
@@ -47,7 +47,7 @@ window.canvasPhysics = {
             }
         }, { capture: true }); // Dùng capture để chặn trước Panzoom
 
-        canvasElem.parentElement.addEventListener('mousemove', (e) => {
+        canvasElem.parentElement.addEventListener('pointermove', (e) => {
             if (isMarqueeSelecting && marqueeDiv) {
                 e.stopPropagation();
                 e.preventDefault();
@@ -68,7 +68,7 @@ window.canvasPhysics = {
             }
         }, { capture: true });
 
-        canvasElem.parentElement.addEventListener('mouseup', (e) => {
+        canvasElem.parentElement.addEventListener('pointerup', (e) => {
             if (isMarqueeSelecting && marqueeDiv) {
                 e.stopPropagation();
                 e.preventDefault();
@@ -148,7 +148,7 @@ window.canvasPhysics = {
 
         // Broadcast cursor movement for Live Cursors
         let lastCursorSent = 0;
-        canvasElem.parentElement.addEventListener('mousemove', (e) => {
+        canvasElem.parentElement.addEventListener('pointermove', (e) => {
             let now = Date.now();
             if (now - lastCursorSent > 50) { // Throttle to 20Hz
                 lastCursorSent = now;
