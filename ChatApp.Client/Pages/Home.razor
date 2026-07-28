@@ -861,6 +861,7 @@
             try
             {
                 await JS.InvokeVoidAsync("canvasPhysics.initDraggableMessages");
+                await JS.InvokeVoidAsync("scrollToBottom", "chat-messages-area");
             }
             catch { /* Ignore if script not loaded yet */ }
         }
@@ -894,7 +895,7 @@
             .WithAutomaticReconnect()
             .Build();
 
-        hubConnection.On<MessageDto>("ReceiveNewMessage", (message) =>
+        hubConnection.On<MessageDto>("ReceiveNewMessage", async (message) =>
         {
             if (selectedId == message.ConversationId)
             {
@@ -917,7 +918,8 @@
                     }
                 }
 
-                InvokeAsync(StateHasChanged);
+                await InvokeAsync(StateHasChanged);
+                try { await JS.InvokeVoidAsync("scrollToBottom", "chat-messages-area"); } catch {}
             }
             else
             {
@@ -1904,7 +1906,8 @@
             var cmd = new { Id = id };
             if (hubConnection != null)
             {
-                await hubConnection.SendAsync("DeletePinboardItem", cmd, selectedId.ToString());
+                // Sử dụng InvokeAsync để chờ server xử lý xong, tránh lỗi EF Core concurrent
+                await hubConnection.InvokeAsync("DeletePinboardItem", cmd, selectedId.ToString());
             }
         }
     }
