@@ -42,6 +42,8 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 // Đăng ký SignalR
 builder.Services.AddSignalR();
 
+// Đăng ký Background Service
+builder.Services.AddHostedService<ChatApp.WebApi.Services.ChatBackgroundService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

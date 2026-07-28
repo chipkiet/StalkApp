@@ -160,6 +160,19 @@
         }
     }
 
+    public void UpdatePresence(Guid userId, bool isOnline, DateTime? lastSeenAt)
+    {
+        if (IsVisible && userProfile != null && userProfile.Id == userId)
+        {
+            userProfile.IsOnline = isOnline;
+            if (!isOnline && lastSeenAt.HasValue)
+            {
+                userProfile.LastSeenAt = lastSeenAt;
+            }
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
     private async Task CloseModal()
     {
         IsVisible = false;

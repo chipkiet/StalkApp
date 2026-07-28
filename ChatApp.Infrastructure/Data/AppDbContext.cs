@@ -19,7 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<PinboardItem> PinboardItems => Set<PinboardItem>();
     public DbSet<PinboardConnection> PinboardConnections => Set<PinboardConnection>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
-
+    public DbSet<ScheduledMessage> ScheduledMessages => Set<ScheduledMessage>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

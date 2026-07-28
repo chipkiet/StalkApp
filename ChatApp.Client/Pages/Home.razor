@@ -164,9 +164,15 @@
                     <div class="chat-message-list">
                         @foreach (var msg in messages)
                         {
+                            bool isSystem = msg.MessageType == MessageType.System;
                             bool isSelf = msg.SenderId == currentUserId;
-                            <div class="chat-msg @(isSelf ? "msg-self" : "msg-other")">
-                                @if (isSelf)
+                            string msgClass = isSystem ? "msg-system" : (isSelf ? "msg-self" : "msg-other");
+                            <div class="chat-msg @msgClass">
+                                @if (isSystem)
+                                {
+                                    // Không render avatar hay action cho tin nhắn hệ thống
+                                }
+                                else if (isSelf)
                                 {
                                     <div class="msg-actions">
                                         <button class="btn-msg-action" title="Trả lời" @onclick="() => SetReply(msg)">↩</button>
@@ -221,7 +227,7 @@
                                     }
                                     <span class="msg-time">@msg.CreatedAt.ToLocalTime().ToString("HH:mm")</span>
                                 </div>
-                                @if (!isSelf)
+                                @if (!isSelf && !isSystem)
                                 {
                                     <div class="msg-actions">
                                         <div class="reaction-picker-wrapper">
@@ -303,6 +309,7 @@
                        value="@newMessageContent"
                        @oninput="HandleChatInput"
                        @onkeydown="OnMessageKeyDown" />
+                <button class="btn-schedule" @onclick="OpenSchedulePopup" title="Đặt giờ gửi" style="background:none; border:none; cursor:pointer; font-size:1.2rem; margin-right:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">🕒</button>
                 <button class="chat-send-btn" 
                         @onclick="SendMessage" 
                         disabled="@(string.IsNullOrWhiteSpace(newMessageContent) && !isUploading)">
@@ -811,6 +818,40 @@
     </div>
 }
 
+<!-- ═══ MODAL ĐẶT GIỜ GỬI (SCHEDULE MESSAGE) ═══ -->
+@if (showScheduleModal)
+{
+    <div class="modal-backdrop" @onclick="CloseScheduleModal">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Hẹn giờ gửi tin nhắn</h3>
+                <button class="modal-close-btn" @onclick="CloseScheduleModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-form-group">
+                    <label class="modal-label">Nội dung tin nhắn</label>
+                    <textarea class="modal-input" rows="3" placeholder="Nhập nội dung..." @bind="scheduleMessageContent" style="resize:none; padding:10px;"></textarea>
+                </div>
+                <div class="modal-form-group">
+                    <label class="modal-label">Thời gian gửi (tương lai)</label>
+                    <input class="modal-input" type="datetime-local" @bind="scheduleTime" />
+                </div>
+            </div>
+            @if (scheduleError != null)
+            {
+                <div class="modal-error" style="margin: 0 20px 12px;">@scheduleError</div>
+            }
+            <div class="modal-footer">
+                <button class="modal-cancel-btn" @onclick="CloseScheduleModal">Hủy</button>
+                <button class="modal-create-btn" @onclick="ConfirmScheduleMessage" disabled="@isScheduling">
+                    @if (isScheduling) { <span class="spinner-sm"></span> }
+                    <span>Đặt lịch</span>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <ChatApp.Client.Shared.UserProfileModal @ref="userProfileModal" />
 
 @code {
@@ -820,6 +861,69 @@
     private bool isLoadingMessages = false;
     private string newMessageContent = "";
     private bool isUploading = false;
+    
+    // Schedule state
+    private bool showScheduleModal = false;
+    private string scheduleMessageContent = "";
+    private DateTime scheduleTime = DateTime.Now.AddMinutes(5);
+    private string? scheduleError;
+    private bool isScheduling = false;
+    
+    private void OpenSchedulePopup()
+    {
+        if (selectedConversation == null) return;
+        scheduleMessageContent = newMessageContent;
+        scheduleTime = DateTime.Now.AddMinutes(5);
+        scheduleError = null;
+        showScheduleModal = true;
+    }
+    
+    private void CloseScheduleModal()
+    {
+        showScheduleModal = false;
+    }
+    
+    private async Task ConfirmScheduleMessage()
+    {
+        if (string.IsNullOrWhiteSpace(scheduleMessageContent))
+        {
+            scheduleError = "Vui lòng nhập nội dung";
+            return;
+        }
+        if (scheduleTime <= DateTime.Now)
+        {
+            scheduleError = "Thời gian phải chọn ở tương lai";
+            return;
+        }
+        
+        isScheduling = true;
+        scheduleError = null;
+        try
+        {
+            var req = new ChatApp.Shared.DTOs.Messages.ScheduleMessageRequest
+            {
+                ConversationId = selectedConversation.ConversationId,
+                Content = scheduleMessageContent,
+                ScheduledAt = scheduleTime.ToUniversalTime()
+            };
+            using var res = await Http.PostAsJsonAsync("api/messages/schedule", req);
+            if (res.IsSuccessStatusCode)
+            {
+                newMessageContent = "";
+                CloseScheduleModal();
+                await JS.InvokeVoidAsync("alert", "Đã hẹn giờ gửi tin nhắn thành công");
+            }
+            else
+            {
+                scheduleError = "Lỗi khi đặt lịch hẹn";
+            }
+        }
+        catch (Exception ex)
+        {
+            scheduleError = ex.Message;
+        }
+        isScheduling = false;
+    }
     
     // Mention state
     private bool showMentionPopup = false;
@@ -1343,6 +1447,16 @@
         });
 
         // ── Call SignalR Listeners ──────────────────────────────
+        hubConnection.On<Guid>("UserOnline", (userId) =>
+        {
+            userProfileModal?.UpdatePresence(userId, true, null);
+        });
+
+        hubConnection.On<UserOfflineMessage>("UserOffline", (msg) =>
+        {
+            userProfileModal?.UpdatePresence(msg.UserId, false, msg.LastSeenAt);
+        });
+
         hubConnection.On<Guid>("CallInitiated", (callId) =>
         {
             activeCallId = callId;
@@ -2505,5 +2619,11 @@
             };
             await hubConnection.SendAsync("CreatePinboardItem", cmd);
         }
+    }
+
+    private class UserOfflineMessage
+    {
+        public Guid UserId { get; set; }
+        public DateTime LastSeenAt { get; set; }
     }
 }
