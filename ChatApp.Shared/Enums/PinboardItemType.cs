@@ -5,6 +5,7 @@ namespace ChatApp.Shared.Enums
         StickyNote = 1,
         Task = 2,
         ImageStack = 3,
-        Image = 4
+        Image = 4,
+        File = 5
     }
 }

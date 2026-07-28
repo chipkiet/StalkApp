@@ -84,12 +84,32 @@
             {
                 <ImageCard @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskDeleted="HandleItemDeleted" />
             }
+            else if (item.Type == PinboardItemType.File)
+            {
+                <FileCard @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskDeleted="HandleItemDeleted" />
+            }
             else
             {
                 <StickyNote @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskDeleted="HandleItemDeleted" OnContentUpdated="HandleContentUpdated" />
             }
         }
     }
+    </div>
+
+    <!-- Nút Tạo Mới Trên Canvas -->
+    <div class="canvas-floating-toolbar">
+        <button class="btn btn-create-note" @onclick="CreateNewStickyNote" title="Tạo Note">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Note
+        </button>
+        <button class="btn btn-create-task" @onclick="CreateNewTask" title="Tạo Task">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Task
+        </button>
     </div>
 </div>
 
@@ -177,9 +197,12 @@
     }
 
     [JSInvokable]
-    public async Task OnFileDropped(string url, double x, double y)
+    public async Task OnFileDropped(string url, string fileName, bool isImage, double x, double y)
     {
-        await OnItemCreatedFromDrop.InvokeAsync((Guid.Empty, url, x, y));
+        var payload = isImage ? url : $"{url}|{fileName}";
+        var msgId = isImage ? Guid.Empty : Guid.Parse("00000000-0000-0000-0000-000000000001");
+        // We use a dummy Guid to distinguish between File and Image drop from desktop
+        await OnItemCreatedFromDrop.InvokeAsync((msgId, payload, x, y));
     }
 
     [JSInvokable]
@@ -269,5 +292,18 @@
     public void Dispose()
     {
         _objRef?.Dispose();
+    }
+
+    [Parameter]
+    public EventCallback<PinboardItemType> OnCreateItemRequested { get; set; }
+
+    private async Task CreateNewStickyNote()
+    {
+        await OnCreateItemRequested.InvokeAsync(PinboardItemType.StickyNote);
+    }
+
+    private async Task CreateNewTask()
+    {
+        await OnCreateItemRequested.InvokeAsync(PinboardItemType.Task);
     }
 }

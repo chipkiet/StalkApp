@@ -45,7 +45,7 @@
         }
         else
         {
-            @Item.Content
+            @((MarkupString)ParseLinks(Item.Content))
         }
     </div>
     
@@ -153,5 +153,15 @@
         {
             await OnConnectClicked.InvokeAsync(Item.Id);
         }
+    }
+    private string ParseLinks(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return "";
+        var encoded = System.Net.WebUtility.HtmlEncode(content);
+        var urlRegex = new System.Text.RegularExpressions.Regex(
+            @"(http|https)://([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            
+        return urlRegex.Replace(encoded, "<a href=\"$0\" target=\"_blank\" class=\"text-accent\" style=\"text-decoration: underline;\" onclick=\"event.stopPropagation()\">$0</a>").Replace("\n", "<br/>");
     }
 }

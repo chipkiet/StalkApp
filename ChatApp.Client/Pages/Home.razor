@@ -1918,6 +1918,10 @@
         {
             type = ChatApp.Shared.Enums.PinboardItemType.Image;
         }
+        else if (data.msgId == Guid.Parse("00000000-0000-0000-0000-000000000001"))
+        {
+            type = ChatApp.Shared.Enums.PinboardItemType.File;
+        }
         else 
         {
             var msg = messages?.FirstOrDefault(m => m.Id == data.msgId);
@@ -1941,9 +1945,10 @@
                         type = ChatApp.Shared.Enums.PinboardItemType.Image;
                         actualContent = msg.AttachmentUrl;
                     }
-                    else if (string.IsNullOrWhiteSpace(actualContent))
+                    else 
                     {
-                        actualContent = msg.AttachmentName ?? msg.Content;
+                        type = ChatApp.Shared.Enums.PinboardItemType.File;
+                        actualContent = $"{msg.AttachmentUrl}|{msg.AttachmentName}";
                     }
                 }
             }
@@ -1955,7 +1960,7 @@
             Content = actualContent,
             PositionX = data.x,
             PositionY = data.y,
-            LinkedMessageId = data.msgId == Guid.Empty ? (Guid?)null : data.msgId,
+            LinkedMessageId = (data.msgId == Guid.Empty || data.msgId == Guid.Parse("00000000-0000-0000-0000-000000000001")) ? (Guid?)null : data.msgId,
             ZIndex = MyCanvasItems.Count + 1
         };
         
@@ -2042,6 +2047,24 @@
         {
             _ = SelectConversation(conv);
             InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleCreateItemRequested(ChatApp.Shared.Enums.PinboardItemType type)
+    {
+        if (hubConnection != null && selectedId != Guid.Empty)
+        {
+            var cmd = new {
+                ConversationId = selectedId,
+                Type = type,
+                Content = type == ChatApp.Shared.Enums.PinboardItemType.Task ? "New Task" : "New Note",
+                PositionX = 100.0,
+                PositionY = 100.0,
+                LinkedMessageId = (Guid?)null,
+                ZIndex = MyCanvasItems.Count + 1,
+                Color = type == ChatApp.Shared.Enums.PinboardItemType.StickyNote ? "#ffeb3b" : "#ffffff"
+            };
+            await hubConnection.SendAsync("CreatePinboardItem", cmd);
         }
     }
 }

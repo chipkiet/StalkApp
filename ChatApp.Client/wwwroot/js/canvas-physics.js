@@ -42,31 +42,30 @@ window.canvasPhysics = {
             e.preventDefault();
             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 let file = e.dataTransfer.files[0];
-                if (file.type.startsWith('image/')) {
-                    // Caculate drop coordinates
-                    let p = this.panzoom.getPan();
-                    let s = this.panzoom.getScale();
-                    let rect = canvasElem.parentElement.getBoundingClientRect();
-                    let x = (e.clientX - rect.left - p.x) / s;
-                    let y = (e.clientY - rect.top - p.y) / s;
-                    
-                    // Upload file
-                    let formData = new FormData();
-                    formData.append('file', file);
-                    
-                    // Thể hiện loading UI nếu cần
-                    fetch('/api/attachments/upload', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.url) {
-                            this.dotnetHelper.invokeMethodAsync('OnFileDropped', data.url, x, y);
-                        }
-                    })
-                    .catch(err => console.error('Upload failed', err));
-                }
+                // Caculate drop coordinates
+                let p = this.panzoom.getPan();
+                let s = this.panzoom.getScale();
+                let rect = canvasElem.parentElement.getBoundingClientRect();
+                let x = (e.clientX - rect.left - p.x) / s;
+                let y = (e.clientY - rect.top - p.y) / s;
+                
+                // Upload file
+                let formData = new FormData();
+                formData.append('file', file);
+                
+                // Thể hiện loading UI nếu cần
+                fetch('/api/attachments/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.url) {
+                        let isImage = file.type.startsWith('image/');
+                        this.dotnetHelper.invokeMethodAsync('OnFileDropped', data.url, file.name, isImage, x, y);
+                    }
+                })
+                .catch(err => console.error('Upload failed', err));
             }
         });
 
