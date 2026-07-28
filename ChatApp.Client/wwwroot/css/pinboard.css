@@ -54,13 +54,13 @@
 }
 
 .canvas-connection {
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-    animation: drawConnection 0.5s ease-out;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    stroke-dasharray: 12 12;
+    animation: marching-ants 1s linear infinite;
 }
 
-@keyframes drawConnection {
-    from { stroke-dasharray: 0 1000; }
-    to { stroke-dasharray: 1000 1000; }
+@keyframes marching-ants {
+    to { stroke-dashoffset: -24; }
 }
 
 .canvas-board:active {

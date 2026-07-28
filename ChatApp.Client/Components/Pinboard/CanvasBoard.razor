@@ -16,25 +16,31 @@
         
         @if (Connections != null && Items != null)
         {
+            var drawnPairs = new HashSet<string>();
             @foreach (var conn in Connections)
             {
+                var minId = conn.SourceItemId.CompareTo(conn.TargetItemId) < 0 ? conn.SourceItemId : conn.TargetItemId;
+                var maxId = conn.SourceItemId.CompareTo(conn.TargetItemId) > 0 ? conn.SourceItemId : conn.TargetItemId;
+                var pairKey = $"{minId}_{maxId}";
+                if (drawnPairs.Contains(pairKey)) continue;
+                drawnPairs.Add(pairKey);
+
                 var src = Items.FirstOrDefault(i => i.Id == conn.SourceItemId);
                 var tgt = Items.FirstOrDefault(i => i.Id == conn.TargetItemId);
                 if (src != null && tgt != null)
                 {
-                    // Tạm thời hardcode offset tới tâm thẻ (width: 300, height: 200)
                     var x1 = src.PositionX + 150; 
                     var y1 = src.PositionY + 100;
                     var x2 = tgt.PositionX + 150;
                     var y2 = tgt.PositionY + 100;
-                    var cx1 = x1 + Math.Abs(x2 - x1) / 2;
-                    var cy1 = y1;
-                    var cx2 = x2 - Math.Abs(x2 - x1) / 2;
-                    var cy2 = y2;
-                    
-                    <path @key="conn.Id" d="M @x1 @y1 C @cx1 @cy1, @cx2 @cy2, @x2 @y2" 
+                    var midX = x1 + (x2 - x1) / 2;
+                    var pathData = System.FormattableString.Invariant($"M {x1} {y1} C {midX} {y1}, {midX} {y2}, {x2} {y2}");
+                    <path @key="conn.Id" 
+                          d="@pathData" 
+                          data-source-id="@conn.SourceItemId"
+                          data-target-id="@conn.TargetItemId"
                           fill="none" 
-                          stroke="var(--accent)" 
+                          stroke="var(--accent-primary)" 
                           stroke-width="3" 
                           class="canvas-connection" />
                 }
@@ -128,7 +134,7 @@
         if (item != null)
         {
             // Trigger confetti locally first for instant feedback
-            await JS.InvokeVoidAsync("canvasPhysics.triggerConfetti", item.PositionX + 100, item.PositionY + 50);
+            await JS.InvokeVoidAsync("canvasPhysics.triggerConfetti", itemId.ToString());
         }
         await OnTaskCompleted.InvokeAsync(itemId);
     }
