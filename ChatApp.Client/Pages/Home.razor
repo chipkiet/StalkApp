@@ -1134,7 +1134,7 @@
         try
         {
             inboxItems = await Http.GetFromJsonAsync<List<InboxItemDto>>(
-                $"/api/conversations/inbox/{currentUserId}");
+                $"/api/conversations/inbox");
             
             if (inboxItems != null && hubConnection != null)
             {
@@ -1159,7 +1159,7 @@
     {
         try
         {
-            var body = new { UserId = currentUserId, IsPinned = isPinned };
+            var body = new { IsPinned = isPinned };
             var response = await Http.PostAsJsonAsync($"/api/conversations/{conversationId}/pin", body);
             
             if (response.IsSuccessStatusCode)
@@ -1194,7 +1194,7 @@
 
         try
         {
-            var msgTask = Http.GetFromJsonAsync<List<MessageDto>>($"/api/messages/{selectedId}/user/{currentUserId}");
+            var msgTask = Http.GetFromJsonAsync<List<MessageDto>>($"/api/messages/{selectedId}");
             var canvasTask = Http.GetFromJsonAsync<List<PinboardItemDto>>($"/api/pinboard/conversation/{selectedId}");
             var connTask = Http.GetFromJsonAsync<List<PinboardConnectionDto>>($"/api/pinboard/{selectedId}/connections");
             var partTask = Http.GetFromJsonAsync<List<ParticipantProfileDto>>($"/api/conversations/{selectedId}/participants");
@@ -1234,7 +1234,7 @@
     {
         if (conversationToDelete == Guid.Empty) return;
 
-        var response = await Http.DeleteAsync($"/api/conversations/{conversationToDelete}/user/{currentUserId}");
+        var response = await Http.DeleteAsync($"/api/conversations/{conversationToDelete}");
         if (response.IsSuccessStatusCode)
         {
             selectedId = Guid.Empty;
@@ -1609,7 +1609,7 @@
 
         try
         {
-            var body = new { UserId = currentUserId, TargetConversationId = targetConversationId };
+            var body = new { TargetConversationId = targetConversationId };
             var response = await Http.PostAsJsonAsync($"/api/messages/{messageToForward}/forward", body);
             
             if (response.IsSuccessStatusCode)
@@ -1900,7 +1900,7 @@
     private async Task ToggleMute(InboxItemDto conv)
     {
         bool newState = !conv.IsMuted;
-        var response = await Http.PutAsync($"/api/conversations/{conv.ConversationId}/mute?userId={currentUserId}&isMuted={newState}", null);
+        var response = await Http.PutAsync($"/api/conversations/{conv.ConversationId}/mute?isMuted={newState}", null);
         if (response.IsSuccessStatusCode)
         {
             var updatedConv = conv with { IsMuted = newState };

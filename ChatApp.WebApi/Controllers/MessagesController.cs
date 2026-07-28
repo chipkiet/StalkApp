@@ -1,4 +1,5 @@
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using ChatApp.Application.Features.Messages.Commands.AddReaction;
 using ChatApp.Application.Features.Messages.Commands.DeleteMessage;
@@ -8,12 +9,14 @@ using ChatApp.Application.Features.Messages.Commands.PinMessage;
 using ChatApp.Application.Features.Messages.Commands.RemoveReaction;
 using ChatApp.Application.Features.Messages.Queries.GetMessages;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatApp.WebApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class MessagesController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -23,11 +26,24 @@ public class MessagesController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpGet("{conversationId}/user/{userId}")]
-    public async Task<IActionResult> GetMessages(Guid conversationId, Guid userId, [FromQuery] int count = 50)
+    private Guid GetCurrentUserId()
     {
-        var result = await _mediator.Send(new GetMessagesQuery(conversationId, userId, count));
-        return Ok(result);
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("nameid")?.Value;
+        return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+    }
+
+    [HttpGet("{conversationId}")]
+    public async Task<IActionResult> GetMessages(Guid conversationId, [FromQuery] int count = 50)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediator.Send(new GetMessagesQuery(conversationId, userId, count));
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
     }
 
     [HttpPut("{messageId}")]
@@ -35,23 +51,25 @@ public class MessagesController : ControllerBase
     {
         try
         {
-            var result = await _mediator.Send(new EditMessageCommand(messageId, body.UserId, body.NewContent));
+            var userId = GetCurrentUserId();
+            var result = await _mediator.Send(new EditMessageCommand(messageId, userId, body.NewContent));
             return Ok(result);
         }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpDelete("{messageId}")]
-    public async Task<IActionResult> DeleteMessage(Guid messageId, [FromQuery] Guid userId)
+    public async Task<IActionResult> DeleteMessage(Guid messageId)
     {
         try
         {
+            var userId = GetCurrentUserId();
             var result = await _mediator.Send(new DeleteMessageCommand(messageId, userId));
             return Ok(result);
         }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpPost("{messageId}/pin")]
@@ -59,11 +77,12 @@ public class MessagesController : ControllerBase
     {
         try
         {
-            var result = await _mediator.Send(new PinMessageCommand(messageId, body.UserId, body.IsPinned));
+            var userId = GetCurrentUserId();
+            var result = await _mediator.Send(new PinMessageCommand(messageId, userId, body.IsPinned));
             return Ok(result);
         }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpPost("{messageId}/reactions")]
@@ -71,22 +90,24 @@ public class MessagesController : ControllerBase
     {
         try
         {
-            var result = await _mediator.Send(new AddReactionCommand(messageId, body.UserId, body.Emotion));
+            var userId = GetCurrentUserId();
+            var result = await _mediator.Send(new AddReactionCommand(messageId, userId, body.Emotion));
             return Ok(result);
         }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpDelete("{messageId}/reactions")]
-    public async Task<IActionResult> RemoveReaction(Guid messageId, [FromQuery] Guid userId)
+    public async Task<IActionResult> RemoveReaction(Guid messageId)
     {
         try
         {
+            var userId = GetCurrentUserId();
             var result = await _mediator.Send(new RemoveReactionCommand(messageId, userId));
             return Ok(result);
         }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpPost("{messageId}/forward")]
@@ -94,15 +115,16 @@ public class MessagesController : ControllerBase
     {
         try
         {
-            var result = await _mediator.Send(new ForwardMessageCommand(messageId, body.UserId, body.TargetConversationId));
+            var userId = GetCurrentUserId();
+            var result = await _mediator.Send(new ForwardMessageCommand(messageId, userId, body.TargetConversationId));
             return Ok(result);
         }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, ex.Message); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 }
 
-public record EditMessageRequest(Guid UserId, string NewContent);
-public record PinMessageRequest(Guid UserId, bool IsPinned);
-public record AddReactionRequest(Guid UserId, string Emotion);
-public record ForwardMessageRequest(Guid UserId, Guid TargetConversationId);
+public record EditMessageRequest(string NewContent);
+public record PinMessageRequest(bool IsPinned);
+public record AddReactionRequest(string Emotion);
+public record ForwardMessageRequest(Guid TargetConversationId);
