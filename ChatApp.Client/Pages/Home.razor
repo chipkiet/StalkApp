@@ -1224,6 +1224,7 @@
             try
             {
                 await JS.InvokeVoidAsync("canvasPhysics.initDraggableMessages");
+                await JS.InvokeVoidAsync("scrollToBottom", "chat-messages-area");
             }
             catch { /* Ignore if script not loaded yet */ }
         }
@@ -1257,7 +1258,7 @@
             .WithAutomaticReconnect()
             .Build();
 
-        hubConnection.On<MessageDto>("ReceiveNewMessage", (message) =>
+        hubConnection.On<MessageDto>("ReceiveNewMessage", async (message) =>
         {
             if (selectedId == message.ConversationId)
             {
@@ -1280,7 +1281,8 @@
                     }
                 }
 
-                InvokeAsync(StateHasChanged);
+                await InvokeAsync(StateHasChanged);
+                try { await JS.InvokeVoidAsync("scrollToBottom", "chat-messages-area"); } catch {}
             }
             else
             {
@@ -2340,20 +2342,64 @@
             var cmd = new { Id = id };
             if (hubConnection != null)
             {
-                await hubConnection.SendAsync("DeletePinboardItem", cmd, selectedId.ToString());
+                // Sử dụng InvokeAsync để chờ server xử lý xong, tránh lỗi EF Core concurrent
+                await hubConnection.InvokeAsync("DeletePinboardItem", cmd, selectedId.ToString());
             }
         }
     }
 
     private async Task HandleItemCreatedFromDrop((Guid msgId, string content, double x, double y) data)
     {
+        var type = ChatApp.Shared.Enums.PinboardItemType.Task;
+        var actualContent = data.content;
+
+        if (data.msgId == Guid.Empty) 
+        {
+            type = ChatApp.Shared.Enums.PinboardItemType.Image;
+        }
+        else if (data.msgId == Guid.Parse("00000000-0000-0000-0000-000000000001"))
+        {
+            type = ChatApp.Shared.Enums.PinboardItemType.File;
+        }
+        else 
+        {
+            var msg = messages?.FirstOrDefault(m => m.Id == data.msgId);
+            if (msg != null)
+            {
+                if (msg.MessageType == ChatApp.Domain.Enums.MessageType.Image)
+                {
+                    type = ChatApp.Shared.Enums.PinboardItemType.Image;
+                    actualContent = msg.AttachmentUrl ?? msg.Content;
+                }
+                else if (msg.MessageType == ChatApp.Domain.Enums.MessageType.File)
+                {
+                    if (!string.IsNullOrEmpty(msg.AttachmentUrl) && 
+                        (msg.AttachmentUrl.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
+                         msg.AttachmentUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || 
+                         msg.AttachmentUrl.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || 
+                         msg.AttachmentUrl.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) || 
+                         msg.AttachmentUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ||
+                         msg.AttachmentUrl.EndsWith(".svg", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        type = ChatApp.Shared.Enums.PinboardItemType.Image;
+                        actualContent = msg.AttachmentUrl;
+                    }
+                    else 
+                    {
+                        type = ChatApp.Shared.Enums.PinboardItemType.File;
+                        actualContent = $"{msg.AttachmentUrl}|{msg.AttachmentName}";
+                    }
+                }
+            }
+        }
+
         var cmd = new {
             ConversationId = selectedId, 
-            Type = ChatApp.Shared.Enums.PinboardItemType.Task,
-            Content = data.content,
+            Type = type,
+            Content = actualContent,
             PositionX = data.x,
             PositionY = data.y,
-            LinkedMessageId = (Guid?)null,
+            LinkedMessageId = (data.msgId == Guid.Empty || data.msgId == Guid.Parse("00000000-0000-0000-0000-000000000001")) ? (Guid?)null : data.msgId,
             ZIndex = MyCanvasItems.Count + 1
         };
         
@@ -2440,6 +2486,24 @@
         {
             _ = SelectConversation(conv);
             InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleCreateItemRequested(ChatApp.Shared.Enums.PinboardItemType type)
+    {
+        if (hubConnection != null && selectedId != Guid.Empty)
+        {
+            var cmd = new {
+                ConversationId = selectedId,
+                Type = type,
+                Content = type == ChatApp.Shared.Enums.PinboardItemType.Task ? "New Task" : "New Note",
+                PositionX = 100.0,
+                PositionY = 100.0,
+                LinkedMessageId = (Guid?)null,
+                ZIndex = MyCanvasItems.Count + 1,
+                Color = type == ChatApp.Shared.Enums.PinboardItemType.StickyNote ? "#ffeb3b" : "#ffffff"
+            };
+            await hubConnection.SendAsync("CreatePinboardItem", cmd);
         }
     }
 }

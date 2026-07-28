@@ -1,0 +1,72 @@
+﻿@using ChatApp.Shared.DTOs.Pinboard
+
+<div class="pinboard-card file-card @(IsConnecting ? "card-connecting" : "")" 
+     data-id="@Item.Id" 
+     data-x="@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))" 
+     data-y="@(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))"
+     style="transform: translate(@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))px, @(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))px); z-index: @Item.ZIndex;">
+    
+    <div class="file-toolbar">
+        <button class="btn-tool text-accent" @onclick="HandleConnectClicked" title="Nối thẻ">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.15rem; height: 1.15rem;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+            </svg>
+        </button>
+        <button class="btn-tool text-danger" @onclick="DeleteCard" title="Xóa">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.15rem; height: 1.15rem;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+        </button>
+    </div>
+    
+    <div class="file-content">
+        <a href="@GetFileUrl(Item.Content)" target="_blank" class="file-link" title="@GetFileName(Item.Content)">
+            <div class="file-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+            </div>
+            <div class="file-name">@GetFileName(Item.Content)</div>
+        </a>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public PinboardItemDto Item { get; set; } = default!;
+
+    [Parameter]
+    public bool IsConnecting { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnConnectClicked { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnTaskDeleted { get; set; }
+
+    private async Task HandleConnectClicked()
+    {
+        await OnConnectClicked.InvokeAsync(Item.Id);
+    }
+
+    private async Task DeleteCard()
+    {
+        await OnTaskDeleted.InvokeAsync(Item.Id);
+    }
+
+    private string GetFileUrl(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return "#";
+        var parts = content.Split('|');
+        if (parts.Length > 0) return parts[0];
+        return content;
+    }
+
+    private string GetFileName(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return "Unknown File";
+        var parts = content.Split('|');
+        if (parts.Length > 1) return parts[1];
+        return parts[0];
+    }
+}

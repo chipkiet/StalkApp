@@ -16,6 +16,83 @@ window.canvasPhysics = {
             startX: 0,
             startY: 0
         });
+
+        // Hỗ trợ Marquee Selection (Ctrl + Drag)
+        let isMarqueeSelecting = false;
+        let startX = 0;
+        let startY = 0;
+        let marqueeDiv = null;
+
+        canvasElem.parentElement.addEventListener('pointerdown', (e) => {
+            if (e.ctrlKey && e.button === 0) {
+                // Prevent Panzoom
+                e.stopPropagation();
+                e.preventDefault();
+                isMarqueeSelecting = true;
+                
+                let rect = canvasElem.parentElement.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                
+                marqueeDiv = document.createElement('div');
+                marqueeDiv.className = 'marquee-selection';
+                marqueeDiv.style.left = startX + 'px';
+                marqueeDiv.style.top = startY + 'px';
+                marqueeDiv.style.width = '0px';
+                marqueeDiv.style.height = '0px';
+                canvasElem.parentElement.appendChild(marqueeDiv);
+            } else if (e.button === 0 && !e.target.closest('.pinboard-card')) {
+                // Click ra ngoài mà không giữ Ctrl thì xoá chọn
+                document.querySelectorAll('.selected-card').forEach(c => c.classList.remove('selected-card'));
+            }
+        }, { capture: true }); // Dùng capture để chặn trước Panzoom
+
+        canvasElem.parentElement.addEventListener('pointermove', (e) => {
+            if (isMarqueeSelecting && marqueeDiv) {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                let rect = canvasElem.parentElement.getBoundingClientRect();
+                let currentX = e.clientX - rect.left;
+                let currentY = e.clientY - rect.top;
+                
+                let minX = Math.min(startX, currentX);
+                let minY = Math.min(startY, currentY);
+                let width = Math.abs(currentX - startX);
+                let height = Math.abs(currentY - startY);
+                
+                marqueeDiv.style.left = minX + 'px';
+                marqueeDiv.style.top = minY + 'px';
+                marqueeDiv.style.width = width + 'px';
+                marqueeDiv.style.height = height + 'px';
+            }
+        }, { capture: true });
+
+        canvasElem.parentElement.addEventListener('pointerup', (e) => {
+            if (isMarqueeSelecting && marqueeDiv) {
+                e.stopPropagation();
+                e.preventDefault();
+                isMarqueeSelecting = false;
+                
+                // Tính toán overlap
+                let marqueeRect = marqueeDiv.getBoundingClientRect();
+                let cards = document.querySelectorAll('.pinboard-card');
+                
+                cards.forEach(card => {
+                    let cardRect = card.getBoundingClientRect();
+                    // Check overlap
+                    if (!(marqueeRect.right < cardRect.left || 
+                          marqueeRect.left > cardRect.right || 
+                          marqueeRect.bottom < cardRect.top || 
+                          marqueeRect.top > cardRect.bottom)) {
+                        card.classList.add('selected-card');
+                    }
+                });
+                
+                marqueeDiv.remove();
+                marqueeDiv = null;
+            }
+        }, { capture: true });
         
         // Force transform-origin to match Panzoom's internal math
         canvasElem.style.transformOrigin = '50% 50%';
@@ -34,9 +111,76 @@ window.canvasPhysics = {
         // Store canvas reference globally for drop checking
         this.canvasElem = canvasElem;
 
+        // Xử lý xoá các thẻ đang chọn bằng phím Delete / Backspace
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Nếu đang gõ text trong thẻ thì không xoá
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                    return;
+                }
+
+                let selectedCards = document.querySelectorAll('.selected-card');
+                if (selectedCards.length > 0) {
+                    // Prevent default backspace behavior (going back in history)
+                    if (e.key === 'Backspace') {
+                        e.preventDefault();
+                    }
+                    
+                    let idsToDelete = [];
+                    selectedCards.forEach(card => {
+                        let cardId = card.getAttribute('data-id');
+                        if (cardId) {
+                            idsToDelete.push(cardId);
+                            // Xoá tạm giao diện ngay lập tức để phản hồi nhanh
+                            card.remove(); 
+                        }
+                    });
+
+                    if (idsToDelete.length > 0 && this.dotnetHelper) {
+                        this.dotnetHelper.invokeMethodAsync('OnCardsDeletedJS', idsToDelete).catch(err => console.error(err));
+                    }
+                }
+            }
+        });
+
+        // Listen for native file drops
+        canvasElem.parentElement.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+        canvasElem.parentElement.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                let file = e.dataTransfer.files[0];
+                // Caculate drop coordinates
+                let p = this.panzoom.getPan();
+                let s = this.panzoom.getScale();
+                let rect = canvasElem.parentElement.getBoundingClientRect();
+                let x = (e.clientX - rect.left - p.x) / s;
+                let y = (e.clientY - rect.top - p.y) / s;
+                
+                // Upload file
+                let formData = new FormData();
+                formData.append('file', file);
+                
+                // Thể hiện loading UI nếu cần
+                fetch('/api/attachments/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.url) {
+                        let isImage = file.type.startsWith('image/');
+                        this.dotnetHelper.invokeMethodAsync('OnFileDropped', data.url, file.name, isImage, x, y);
+                    }
+                })
+                .catch(err => console.error('Upload failed', err));
+            }
+        });
+
         // Broadcast cursor movement for Live Cursors
         let lastCursorSent = 0;
-        canvasElem.parentElement.addEventListener('mousemove', (e) => {
+        canvasElem.parentElement.addEventListener('pointermove', (e) => {
             let now = Date.now();
             if (now - lastCursorSent > 50) { // Throttle to 20Hz
                 lastCursorSent = now;
@@ -305,3 +449,5 @@ window.canvasPhysics = {
         audio.play().catch(e => console.log('Audio play failed', e));
     }
 };
+
+window.scrollToBottom = (elementId) => { var element = document.getElementById(elementId); if (element) { element.scrollTop = element.scrollHeight; } };
