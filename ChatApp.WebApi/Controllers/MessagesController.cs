@@ -122,6 +122,19 @@ public class MessagesController : ControllerBase
         catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    [HttpPost("schedule")]
+    public async Task<IActionResult> ScheduleMessage([FromBody] ChatApp.Shared.DTOs.Messages.ScheduleMessageRequest body)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediator.Send(new ChatApp.Application.Features.Messages.Commands.ScheduleMessage.CreateScheduledMessageCommand(body.ConversationId, userId, body.Content, body.ScheduledAt));
+            return Ok(new { id = result });
+        }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }
 
 public record EditMessageRequest(string NewContent);

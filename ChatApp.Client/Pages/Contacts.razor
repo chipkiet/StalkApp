@@ -462,6 +462,36 @@
                 InvokeAsync(StateHasChanged);
             });
 
+            // ── Real-time Presence (Online / Offline) ──
+            hubConnection.On<Guid>("UserOnline", (userId) =>
+            {
+                if (friends != null)
+                {
+                    var friend = friends.FirstOrDefault(f => f.UserId == userId);
+                    if (friend != null)
+                    {
+                        friend.IsOnline = true;
+                        InvokeAsync(StateHasChanged);
+                    }
+                }
+                userProfileModal?.UpdatePresence(userId, true, null);
+            });
+
+            hubConnection.On<UserOfflineMessage>("UserOffline", (msg) =>
+            {
+                if (friends != null)
+                {
+                    var friend = friends.FirstOrDefault(f => f.UserId == msg.UserId);
+                    if (friend != null)
+                    {
+                        friend.IsOnline = false;
+                        friend.LastSeenAt = msg.LastSeenAt;
+                        InvokeAsync(StateHasChanged);
+                    }
+                }
+                userProfileModal?.UpdatePresence(msg.UserId, false, msg.LastSeenAt);
+            });
+
             await hubConnection.StartAsync();
         }
         catch { /* SignalR lỗi không crash page */ }
@@ -715,5 +745,11 @@
     private class ErrorResponse
     {
         public string? Message { get; set; }
+    }
+
+    private class UserOfflineMessage
+    {
+        public Guid UserId { get; set; }
+        public DateTime LastSeenAt { get; set; }
     }
 }
