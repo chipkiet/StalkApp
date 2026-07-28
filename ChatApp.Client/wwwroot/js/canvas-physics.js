@@ -111,6 +111,38 @@ window.canvasPhysics = {
         // Store canvas reference globally for drop checking
         this.canvasElem = canvasElem;
 
+        // Xử lý xoá các thẻ đang chọn bằng phím Delete / Backspace
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Nếu đang gõ text trong thẻ thì không xoá
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                    return;
+                }
+
+                let selectedCards = document.querySelectorAll('.selected-card');
+                if (selectedCards.length > 0) {
+                    // Prevent default backspace behavior (going back in history)
+                    if (e.key === 'Backspace') {
+                        e.preventDefault();
+                    }
+                    
+                    let idsToDelete = [];
+                    selectedCards.forEach(card => {
+                        let cardId = card.getAttribute('data-id');
+                        if (cardId) {
+                            idsToDelete.push(cardId);
+                            // Xoá tạm giao diện ngay lập tức để phản hồi nhanh
+                            card.remove(); 
+                        }
+                    });
+
+                    if (idsToDelete.length > 0 && this.dotnetHelper) {
+                        this.dotnetHelper.invokeMethodAsync('OnCardsDeletedJS', idsToDelete).catch(err => console.error(err));
+                    }
+                }
+            }
+        });
+
         // Listen for native file drops
         canvasElem.parentElement.addEventListener('dragover', (e) => {
             e.preventDefault();

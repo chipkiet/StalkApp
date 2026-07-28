@@ -232,6 +232,18 @@
         }
     }
 
+    [JSInvokable]
+    public async Task OnCardsDeletedJS(string[] itemIds)
+    {
+        foreach (var idStr in itemIds)
+        {
+            if (Guid.TryParse(idStr, out var parsedId))
+            {
+                await OnItemDeleted.InvokeAsync(parsedId);
+            }
+        }
+    }
+
     [JSInvokable("OnCursorMoved")]
     public async Task OnCursorMoved(double x, double y)
     {
