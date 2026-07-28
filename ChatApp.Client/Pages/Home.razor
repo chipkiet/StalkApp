@@ -298,6 +298,7 @@
                 <InputFile OnChange="HandleFileSelected" class="file-input-hidden" id="chatFileInput" />
                 
                 <input class="chat-input"
+                       id="chat-message-input"
                        type="text"
                        placeholder="Nhập tin nhắn..."
                        value="@newMessageContent"
@@ -840,6 +841,14 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            // Khởi tạo theo dõi trạng thái IME cho ô nhập tin nhắn.
+            // Phải gọi sau khi DOM đã render lần đầu để element tồn tại.
+            try { await JS.InvokeVoidAsync("ChatIME.init", "chat-message-input"); }
+            catch { /* script chưa load kịp, bỏ qua */ }
+        }
+
         if (messages != null && !isLoadingMessages && !messagesRendered)
         {
             messagesRendered = true;
@@ -884,6 +893,15 @@
             if (selectedId == message.ConversationId)
             {
                 if (messages == null) messages = new List<MessageDto>();
+
+                // Guard: bỏ qua nếu tin nhắn đã tồn tại (tránh hiện 2 lần
+                // khi server echo lại chính tin vừa gửi)
+                if (messages.Any(m => m.Id == message.Id))
+                {
+                    InvokeAsync(StateHasChanged);
+                    return;
+                }
+
                 messages.Add(message);
 
                 if (inboxItems != null)
@@ -1511,10 +1529,14 @@
 
     private async Task OnMessageKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !e.ShiftKey)
-        {
-            await SendMessage();
-        }
+        if (e.Key != "Enter" || e.ShiftKey) return;
+
+        // Kiểm tra trạng thái IME: nếu đang tổ hợp dấu tiếng Việt
+        // (Telex/VNI) thì Enter dùng để chốt âm tiết, không phải gửi tin.
+        bool composing = await JS.InvokeAsync<bool>("ChatIME.isComposing");
+        if (composing) return;
+
+        await SendMessage();
     }
 
     private async Task SendMessage()

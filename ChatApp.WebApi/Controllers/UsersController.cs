@@ -165,6 +165,41 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Chuẩn hóa số điện thoại Việt Nam về định dạng E.164 (+84...) trước khi
+    /// so sánh với dữ liệu trong DB.
+    ///
+    /// Bảng quy đổi:
+    ///   "01234567891"   -> "+841234567891"  (0 -> +84)
+    ///   "841234567891"  -> "+841234567891"  (84 không có dấu + -> +84)
+    ///   "00841234567891"-> "+841234567891"  (0084 -> +84)
+    ///   "+841234567891" -> "+841234567891"  (giữ nguyên)
+    ///   Các ký tự khoảng trắng, gạch ngang, dấu chấm được loại bỏ.
+    /// </summary>
+    private static string NormalizeVietnamesePhone(string raw)
+    {
+        // Bỏ khoảng trắng, gạch ngang, dấu chấm
+        var cleaned = raw.Trim()
+                         .Replace(" ", "")
+                         .Replace("-", "")
+                         .Replace(".", "");
+
+        if (cleaned.StartsWith("0084"))
+            return "+84" + cleaned[4..];
+
+        if (cleaned.StartsWith("+84"))
+            return cleaned; // đã đúng định dạng
+
+        if (cleaned.StartsWith("84") && cleaned.Length >= 11)
+            return "+84" + cleaned[2..];
+
+        if (cleaned.StartsWith("0"))
+            return "+84" + cleaned[1..];
+
+        // Fallback: trả về nguyên bản (có thể là số quốc tế khác)
+        return cleaned;
+    }
+
+    /// <summary>
     /// Tìm kiếm user theo số điện thoại (dùng khi tạo cuộc trò chuyện mới)
     /// </summary>
     [HttpGet("search")]
@@ -173,7 +208,10 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(phone))
             return BadRequest(new { message = "Vui lòng nhập số điện thoại." });
 
-        var users = await _userRepository.FindAsync(u => u.PhoneNumber == phone.Trim());
+        // Chuẩn hóa đầu vào về E.164 trước khi truy vấn DB
+        var normalized = NormalizeVietnamesePhone(phone);
+
+        var users = await _userRepository.FindAsync(u => u.PhoneNumber == normalized);
         var user = users.FirstOrDefault();
 
         if (user is null)
