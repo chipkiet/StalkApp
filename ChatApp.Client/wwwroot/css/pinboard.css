@@ -453,3 +453,20 @@
 .canvas-floating-toolbar .btn-create-note:hover {
     color: #eab308; /* Yellow */
 }
+
+
+/* Marquee Selection (Vùng chọn nhiều thẻ) */
+.marquee-selection {
+    position: absolute;
+    border: 1px dashed var(--accent-color);
+    background-color: rgba(var(--accent-color-rgb, 10, 132, 255), 0.1);
+    pointer-events: none; /* Không bắt sự kiện chuột */
+    z-index: 9999;
+}
+
+/* Hiệu ứng viền phát sáng khi thẻ được chọn */
+.selected-card {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+    box-shadow: 0 0 15px rgba(var(--accent-color-rgb, 10, 132, 255), 0.3) !important;
+}
