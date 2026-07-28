@@ -4,7 +4,7 @@
      data-id="@Item.Id" 
      data-x="@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))" 
      data-y="@(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))"
-     style="transform: translate(@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))px, @(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))px); z-index: @Item.ZIndex;">
+     style="background-color: @(Item.Color ?? "#ffeb3b"); transform: translate(@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))px, @(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))px); z-index: @Item.ZIndex;">
     
     <div class="note-header">
         <span class="note-icon text-warning">
@@ -14,6 +14,7 @@
             </svg>
         </span>
         <div class="task-toolbar">
+            <input type="color" class="color-picker-btn" style="width:20px;height:20px;padding:0;border:none;background:transparent;cursor:pointer;margin-right:4px;" value="@(Item.Color ?? "#ffeb3b")" @onchange="@(e => ChangeColor(e.Value?.ToString()))" title="Đổi màu" />
             <button class="btn-tool text-accent" @onclick="HandleConnectClicked" title="Nối thẻ">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.15rem; height: 1.15rem;">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
@@ -61,7 +62,7 @@
     public EventCallback<Guid> OnConnectClicked { get; set; }
 
     [Parameter]
-    public EventCallback<(Guid id, string content)> OnContentUpdated { get; set; }
+    public EventCallback<(Guid id, string content, string? color)> OnContentUpdated { get; set; }
 
     private bool isEditing = false;
     private string editContent = "";
@@ -71,6 +72,16 @@
         if (!Item.IsCompleted)
         {
             await OnTaskCompleted.InvokeAsync(Item.Id);
+        }
+    }
+
+    private async Task ChangeColor(string? newColor)
+    {
+        newColor = newColor ?? "#ffeb3b";
+        Item.Color = newColor;
+        if (OnContentUpdated.HasDelegate)
+        {
+            await OnContentUpdated.InvokeAsync((Item.Id, Item.Content, newColor));
         }
     }
 
@@ -92,7 +103,7 @@
             isEditing = false;
             if (editContent != Item.Content)
             {
-                await OnContentUpdated.InvokeAsync((Item.Id, editContent));
+                await OnContentUpdated.InvokeAsync((Item.Id, editContent, Item.Color));
             }
         }
     }

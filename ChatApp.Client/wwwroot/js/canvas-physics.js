@@ -33,6 +33,25 @@ window.canvasPhysics = {
         
         // Store canvas reference globally for drop checking
         this.canvasElem = canvasElem;
+
+        // Broadcast cursor movement for Live Cursors
+        let lastCursorSent = 0;
+        canvasElem.parentElement.addEventListener('mousemove', (e) => {
+            let now = Date.now();
+            if (now - lastCursorSent > 50) { // Throttle to 20Hz
+                lastCursorSent = now;
+                if (this.panzoom && this.dotnetHelper) {
+                    let p = this.panzoom.getPan();
+                    let s = this.panzoom.getScale();
+                    let rect = canvasElem.parentElement.getBoundingClientRect();
+                    
+                    let x = (e.clientX - rect.left - p.x) / s;
+                    let y = (e.clientY - rect.top - p.y) / s;
+                    
+                    this.dotnetHelper.invokeMethodAsync('OnCursorMoved', x, y).catch(() => {});
+                }
+            }
+        });
     },
 
     initDraggableMessages: function() {
@@ -108,6 +127,7 @@ window.canvasPhysics = {
     },
 
     initDraggableCards: function(dotnetHelper) {
+        let lastMoveSent = 0;
         interact('.pinboard-card').draggable({
             inertia: true,
             listeners: {
@@ -128,43 +148,13 @@ window.canvasPhysics = {
                     // Dynamically update connection lines without waiting for Blazor
                     var cardId = target.getAttribute('data-id');
                     if (cardId) {
-                        var centerX = x + 150;
-                        var centerY = y + 100;
-
-                        // Update lines where this card is the source
-                        var sourceLines = document.querySelectorAll(`path.canvas-connection[data-source-id="${cardId}"]`);
-                        sourceLines.forEach(line => {
-                            var d = line.getAttribute('d');
-                            if (d) {
-                                // M x1 y1 C midX y1, midX y2, x2 y2
-                                var parts = d.split(',');
-                                if (parts.length === 3) {
-                                    // Parse x2, y2 from the last part: " x2 y2"
-                                    var lastTokens = parts[2].trim().split(' ');
-                                    if(lastTokens.length >= 2) {
-                                        var x2 = parseFloat(lastTokens[lastTokens.length - 2]);
-                                        var y2 = parseFloat(lastTokens[lastTokens.length - 1]);
-                                        var midX = centerX + (x2 - centerX) / 2;
-                                        line.setAttribute('d', `M ${centerX} ${centerY} C ${midX} ${centerY}, ${midX} ${y2}, ${x2} ${y2}`);
-                                    }
-                                }
-                            }
-                        });
-
-                        // Update lines where this card is the target
-                        var targetLines = document.querySelectorAll(`path.canvas-connection[data-target-id="${cardId}"]`);
-                        targetLines.forEach(line => {
-                            var d = line.getAttribute('d');
-                            if (d) {
-                                var mMatch = d.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
-                                if (mMatch) {
-                                    var x1 = parseFloat(mMatch[1]);
-                                    var y1 = parseFloat(mMatch[2]);
-                                    var midX = x1 + (centerX - x1) / 2;
-                                    line.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${centerY}, ${centerX} ${centerY}`);
-                                }
-                            }
-                        });
+                        window.canvasPhysics.updateCardConnections(cardId, x, y);
+                        
+                        let now = Date.now();
+                        if (now - lastMoveSent > 50) {
+                            lastMoveSent = now;
+                            dotnetHelper.invokeMethodAsync('OnCardMovedLive', cardId, x, y).catch(()=>{});
+                        }
                     }
                 },
                 end (event) {
@@ -179,6 +169,78 @@ window.canvasPhysics = {
                 }
             }
         });
+    },
+
+    getBoundaryPoint: function(cX, cY, tX, tY, w, h) {
+        var dx = tX - cX;
+        var dy = tY - cY;
+        if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return {x: cX, y: cY};
+        
+        var w2 = w / 2;
+        var h2 = h / 2;
+        var slope = dy / dx;
+        
+        var xEdge = dx > 0 ? w2 : -w2;
+        var yAtXEdge = slope * xEdge;
+        
+        if (Math.abs(yAtXEdge) <= h2) {
+            return { x: cX + xEdge, y: cY + yAtXEdge };
+        }
+        
+        var yEdge = dy > 0 ? h2 : -h2;
+        var xAtYEdge = yEdge / slope;
+        return { x: cX + xAtYEdge, y: cY + yEdge };
+    },
+
+    updateCardConnections: function(cardId, x, y) {
+        var c1X = x + 140;
+        var c1Y = y + 80;
+
+        // update lines where this is source
+        var sourceLines = document.querySelectorAll(`path.canvas-connection[data-source-id="${cardId}"]`);
+        sourceLines.forEach(line => {
+            var tgtId = line.getAttribute('data-target-id');
+            var tgtCard = document.querySelector(`.pinboard-card[data-id="${tgtId}"]`);
+            if (tgtCard) {
+                var tx = parseFloat(tgtCard.getAttribute('data-x'));
+                var ty = parseFloat(tgtCard.getAttribute('data-y'));
+                var c2X = tx + 140;
+                var c2Y = ty + 80;
+
+                var p1 = window.canvasPhysics.getBoundaryPoint(c1X, c1Y, c2X, c2Y, 280, 160);
+                var p2 = window.canvasPhysics.getBoundaryPoint(c2X, c2Y, c1X, c1Y, 280, 160);
+                var midX = p1.x + (p2.x - p1.x) / 2;
+                line.setAttribute('d', `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`);
+            }
+        });
+
+        // update lines where this is target
+        var targetLines = document.querySelectorAll(`path.canvas-connection[data-target-id="${cardId}"]`);
+        targetLines.forEach(line => {
+            var srcId = line.getAttribute('data-source-id');
+            var srcCard = document.querySelector(`.pinboard-card[data-id="${srcId}"]`);
+            if (srcCard) {
+                var sx = parseFloat(srcCard.getAttribute('data-x'));
+                var sy = parseFloat(srcCard.getAttribute('data-y'));
+                var c2X = sx + 140; // c2 is now the source center
+                var c2Y = sy + 80;
+
+                var p1 = window.canvasPhysics.getBoundaryPoint(c2X, c2Y, c1X, c1Y, 280, 160);
+                var p2 = window.canvasPhysics.getBoundaryPoint(c1X, c1Y, c2X, c2Y, 280, 160);
+                var midX = p1.x + (p2.x - p1.x) / 2;
+                line.setAttribute('d', `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`);
+            }
+        });
+    },
+
+    updateCardPosition: function(cardId, x, y) {
+        var card = document.querySelector(`.pinboard-card[data-id="${cardId}"]`);
+        if (card) {
+            card.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+            card.setAttribute('data-x', x);
+            card.setAttribute('data-y', y);
+            this.updateCardConnections(cardId, x, y);
+        }
     },
 
     triggerConfetti: function(itemId) {
