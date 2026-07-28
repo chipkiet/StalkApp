@@ -173,6 +173,12 @@
     }
 
     [JSInvokable]
+    public async Task OnFileDropped(string url, double x, double y)
+    {
+        await OnItemCreatedFromDrop.InvokeAsync((Guid.Empty, url, x, y));
+    }
+
+    [JSInvokable]
     public async Task OnCardMoved(string itemId, double x, double y)
     {
         if (Guid.TryParse(itemId, out var parsedId))

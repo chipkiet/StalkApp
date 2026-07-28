@@ -1911,13 +1911,17 @@
 
     private async Task HandleItemCreatedFromDrop((Guid msgId, string content, double x, double y) data)
     {
+        var type = data.msgId == Guid.Empty 
+            ? ChatApp.Shared.Enums.PinboardItemType.Image 
+            : ChatApp.Shared.Enums.PinboardItemType.Task;
+
         var cmd = new {
             ConversationId = selectedId, 
-            Type = ChatApp.Shared.Enums.PinboardItemType.Task,
+            Type = type,
             Content = data.content,
             PositionX = data.x,
             PositionY = data.y,
-            LinkedMessageId = (Guid?)null,
+            LinkedMessageId = data.msgId == Guid.Empty ? (Guid?)null : data.msgId,
             ZIndex = MyCanvasItems.Count + 1
         };
         
