@@ -318,12 +318,16 @@
         <ChatApp.Client.Components.Pinboard.CanvasBoard 
             Items="@MyCanvasItems" 
             Connections="@MyCanvasConnections"
+            ActiveCursors="@activeCursors"
+            OnItemCreatedFromDrop="HandleItemCreatedFromDrop"
             OnItemMoved="HandleItemMoved" 
+            OnItemMovedLive="HandleItemMovedLive"
+            OnCursorMovedEvent="HandleCursorMoved"
             OnTaskCompleted="HandleTaskCompleted" 
             OnItemDeleted="HandleItemDeleted"
-            OnItemCreatedFromDrop="HandleItemCreatedFromDrop"
             OnItemContentUpdated="HandleItemContentUpdated"
-            OnConnectionCreated="HandleConnectionCreated" />
+            OnConnectionCreated="HandleConnectionCreated"
+                          OnConnectionDeleted="HandleConnectionDeleted" />
     </div>
 </div>
 
@@ -706,6 +710,17 @@
     private Guid selectedId;
     private bool isLoading = true;
     private string? errorMessage;
+    // Cursors (UserId -> (X, Y, Name, Color))
+    private Dictionary<Guid, (double X, double Y, string Name, string Color)> activeCursors = new();
+    private Dictionary<Guid, System.Timers.Timer> cursorTimers = new();
+
+    private string[] cursorColors = new[] { "#ff4757", "#2ed573", "#1e90ff", "#ffa502", "#ff6b81", "#7bed9f" };
+
+    private string GetCursorColor(Guid userId)
+    {
+        var index = Math.Abs(userId.GetHashCode()) % cursorColors.Length;
+        return cursorColors[index];
+    }
     private Guid currentUserId;
 
     // ── Modal state ──────────────────────────────────────────
@@ -1045,6 +1060,7 @@
             {
                 if (MyCanvasItems == null) MyCanvasItems = new();
                 MyCanvasItems.Add(item);
+                MyCanvasItems = MyCanvasItems.ToList();
                 InvokeAsync(StateHasChanged);
             }
         });
@@ -1059,9 +1075,16 @@
                     existing.PositionX = item.PositionX;
                     existing.PositionY = item.PositionY;
                     existing.ZIndex = item.ZIndex;
+                    MyCanvasItems = MyCanvasItems.ToList();
                     InvokeAsync(StateHasChanged);
                 }
             }
+        });
+
+        hubConnection.On<Guid, double, double>("PinboardItemMovedLive", (itemId, x, y) =>
+        {
+            // Update UI smoothly via JS without triggering Blazor StateHasChanged
+            JS.InvokeVoidAsync("canvasPhysics.updateCardPosition", itemId.ToString(), x, y);
         });
 
         hubConnection.On<Guid>("PinboardItemDeleted", (itemId) =>
@@ -1072,6 +1095,7 @@
                 if (item != null)
                 {
                     MyCanvasItems.Remove(item);
+                    MyCanvasItems = MyCanvasItems.ToList();
                     InvokeAsync(StateHasChanged);
                 }
             }
@@ -1090,16 +1114,46 @@
             }
         });
 
-        hubConnection.On<PinboardItemDto, Guid>("CanvasTaskCompleted", (item, taskId) =>
+        hubConnection.On<ChatApp.Shared.DTOs.Users.KarmaUpdateDto, Guid>("CanvasTaskCompleted", (karma, taskId) =>
         {
-            if (selectedId == item.ConversationId && MyCanvasItems != null)
+            if (MyCanvasItems != null)
             {
-                var existing = MyCanvasItems.FirstOrDefault(i => i.Id == item.Id);
+                var existing = MyCanvasItems.FirstOrDefault(i => i.Id == taskId);
                 if (existing != null)
                 {
-                    existing.IsCompleted = item.IsCompleted;
+                    existing.IsCompleted = true;
                     InvokeAsync(StateHasChanged);
                 }
+            }
+        });
+
+        hubConnection.On<Guid, double, double>("CursorMoved", (userId, x, y) =>
+        {
+            if (userId != currentUserId)
+            {
+                var participant = conversationParticipants?.FirstOrDefault(p => p.UserId == userId);
+                var name = participant?.DisplayName ?? "User";
+                var color = GetCursorColor(userId);
+                
+                activeCursors[userId] = (x, y, name, color);
+                
+                // Clear old timer
+                if (cursorTimers.ContainsKey(userId))
+                {
+                    cursorTimers[userId].Stop();
+                    cursorTimers[userId].Dispose();
+                }
+                
+                // Set new timer to remove cursor after 3 seconds of inactivity
+                var timer = new System.Timers.Timer(3000) { AutoReset = false };
+                timer.Elapsed += (s, e) => {
+                    activeCursors.Remove(userId);
+                    InvokeAsync(StateHasChanged);
+                };
+                timer.Start();
+                cursorTimers[userId] = timer;
+                
+                InvokeAsync(StateHasChanged);
             }
         });
 
@@ -1109,6 +1163,7 @@
             {
                 if (MyCanvasConnections == null) MyCanvasConnections = new();
                 MyCanvasConnections.Add(conn);
+                MyCanvasConnections = MyCanvasConnections.ToList();
                 InvokeAsync(StateHasChanged);
             }
         });
@@ -1121,6 +1176,7 @@
                 if (conn != null)
                 {
                     MyCanvasConnections.Remove(conn);
+                    MyCanvasConnections = MyCanvasConnections.ToList();
                     InvokeAsync(StateHasChanged);
                 }
             }
@@ -1826,6 +1882,23 @@
         }
     }
 
+    private async Task HandleItemMovedLive((Guid id, double x, double y) data)
+    {
+        if (hubConnection != null)
+        {
+            _ = hubConnection.SendAsync("MovePinboardItemLive", data.id.ToString(), data.x, data.y, selectedId.ToString());
+        }
+    }
+
+    private async Task HandleCursorMoved((double x, double y) data)
+    {
+        if (hubConnection != null && selectedId != Guid.Empty)
+        {
+            // Do not await to avoid blocking UI thread
+            _ = hubConnection.SendAsync("MoveCursor", selectedId.ToString(), data.x, data.y);
+        }
+    }
+
     private async Task HandleTaskCompleted(Guid id)
     {
         var item = MyCanvasItems.FirstOrDefault(i => i.Id == id);
@@ -1834,7 +1907,7 @@
             item.IsCompleted = true;
             StateHasChanged();
             
-            var cmd = new { TaskId = id };
+            var cmd = new { TaskId = id, UserId = currentUserId };
             if (hubConnection != null)
             {
                 await hubConnection.SendAsync("CompleteCanvasTask", cmd, selectedId.ToString());
@@ -1876,15 +1949,15 @@
         }
     }
 
-    private async Task HandleItemContentUpdated((Guid id, string content) data)
+    private async Task HandleItemContentUpdated((Guid id, string content, string? color) data)
     {
         var item = MyCanvasItems.FirstOrDefault(i => i.Id == data.id);
         if (item != null)
         {
-            item.Content = data.content;
+            item.Content = data.content; item.Color = data.color;
             StateHasChanged();
 
-            var cmd = new { Id = data.id, Content = data.content };
+            var cmd = new { Id = data.id, Content = data.content, Color = data.color };
             if (hubConnection != null)
             {
                 await hubConnection.SendAsync("UpdatePinboardItemContent", cmd, selectedId.ToString());
@@ -1896,21 +1969,15 @@
     {
         try
         {
-            var command = new 
+            if (hubConnection != null)
             {
-                SourceItemId = data.sourceId,
-                TargetItemId = data.targetId
-            };
-
-            var response = await Http.PostAsJsonAsync($"api/pinboard/{selectedConversation?.ConversationId}/connections", command);
-            if (response.IsSuccessStatusCode)
-            {
-                var connection = await response.Content.ReadFromJsonAsync<PinboardConnectionDto>();
-                if (connection != null && MyCanvasConnections != null)
-                {
-                    MyCanvasConnections.Add(connection);
-                    StateHasChanged();
-                }
+                var cmd = new {
+                    ConversationId = selectedId, 
+                    SourceItemId = data.sourceId, 
+                    TargetItemId = data.targetId,
+                    Label = "Related"
+                };
+                await hubConnection.SendAsync("CreatePinboardConnection", cmd);
             }
         }
         catch (Exception ex)
@@ -1918,6 +1985,23 @@
             Console.WriteLine($"Error creating connection: {ex.Message}");
         }
     }
+    
+    private async Task HandleConnectionDeleted(Guid connectionId)
+    {
+        try
+        {
+            if (hubConnection != null)
+            {
+                var cmd = new { Id = connectionId };
+                await hubConnection.SendAsync("DeletePinboardConnection", cmd, selectedId.ToString());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting connection: {ex.Message}");
+        }
+    }
+
 
     private async Task ToggleMute(InboxItemDto conv)
     {

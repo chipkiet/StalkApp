@@ -434,4 +434,24 @@ public class ChatHub : Hub
         }
         catch (Exception ex) { await Clients.Caller.SendAsync("ErrorMessage", ex.Message); }
     }
+
+    public async Task MovePinboardItemLive(string itemId, double x, double y, string conversationId)
+    {
+        if (Guid.TryParse(itemId, out var parsedItemId))
+        {
+            await Clients.GroupExcept(conversationId, Context.ConnectionId)
+                         .SendAsync("PinboardItemMovedLive", parsedItemId, x, y);
+        }
+    }
+
+    public async Task MoveCursor(string conversationId, double x, double y)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return;
+
+        // Broadcast cursor position to others in the same room
+        // Throttle frequency is handled by the client
+        await Clients.OthersInGroup(conversationId).SendAsync("CursorMoved", userId, x, y);
+    }
 }
+

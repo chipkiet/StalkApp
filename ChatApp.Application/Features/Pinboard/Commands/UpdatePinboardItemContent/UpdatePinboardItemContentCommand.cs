@@ -4,4 +4,4 @@ using System;
 
 namespace ChatApp.Application.Features.Pinboard.Commands.UpdatePinboardItemContent;
 
-public record UpdatePinboardItemContentCommand(Guid Id, string Content) : IRequest<bool>;
+public record UpdatePinboardItemContentCommand(Guid Id, string Content, string? Color = null) : IRequest<bool>;
