@@ -25,8 +25,8 @@
     left: 8800px; /* 10000 - 1200 */
     width: 2400px;
     height: 1600px;
-    border: 3px dashed rgba(108, 99, 255, 0.4);
-    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--text-muted);
+    
     border-radius: var(--radius-lg);
     pointer-events: none; /* Không cản trở click/drag */
     z-index: 0;
@@ -68,8 +68,8 @@
 }
 
 .drop-target {
-    background-color: rgba(108, 99, 255, 0.1) !important;
-    border: 2px dashed var(--accent) !important;
+    background-color: var(--hover-bg) !important;
+    border: 2px dashed var(--accent-primary) !important;
 }
 
 .chat-bubble.draggable {
@@ -93,15 +93,15 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--radius-lg);
     padding: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-soft);
+    
     cursor: grab;
     transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .pinboard-card:active {
     cursor: grabbing;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--shadow-soft);
     transform: scale(0.9);
 }
 
@@ -128,13 +128,13 @@
 }
 
 .pinboard-card.sticky-note {
-    background: rgba(255, 224, 102, 0.08);
-    border-color: rgba(255, 224, 102, 0.2);
+    background: #fdf5e6; /* pastel yellow/beige */
+    border-color: #f7e0b5;
 }
 
 .pinboard-card.task-card {
-    background: rgba(108, 99, 255, 0.05);
-    border-color: rgba(108, 99, 255, 0.15);
+    background: var(--surface);
+    border-color: var(--border);
 }
 
 .pinboard-card.task-card.completed {

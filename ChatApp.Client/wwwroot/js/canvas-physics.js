@@ -148,7 +148,7 @@ window.canvasPhysics = {
             particleCount: 100,
             spread: 70,
             origin: { x: xRel, y: yRel },
-            colors: ['#6c63ff', '#ff6b9d', '#22d3a0', '#f0f2f8']
+            colors: ['#d4724a', '#8b6914', '#2a7a55', '#e8e1d9']
         });
         
         // Play satisfying sound
