@@ -33,6 +33,25 @@ window.canvasPhysics = {
         
         // Store canvas reference globally for drop checking
         this.canvasElem = canvasElem;
+
+        // Broadcast cursor movement for Live Cursors
+        let lastCursorSent = 0;
+        canvasElem.parentElement.addEventListener('mousemove', (e) => {
+            let now = Date.now();
+            if (now - lastCursorSent > 50) { // Throttle to 20Hz
+                lastCursorSent = now;
+                if (this.panzoom && this.dotnetHelper) {
+                    let p = this.panzoom.getPan();
+                    let s = this.panzoom.getScale();
+                    let rect = canvasElem.parentElement.getBoundingClientRect();
+                    
+                    let x = (e.clientX - rect.left - p.x) / s;
+                    let y = (e.clientY - rect.top - p.y) / s;
+                    
+                    this.dotnetHelper.invokeMethodAsync('OnCursorMoved', x, y).catch(() => {});
+                }
+            }
+        });
     },
 
     initDraggableMessages: function() {
@@ -108,6 +127,7 @@ window.canvasPhysics = {
     },
 
     initDraggableCards: function(dotnetHelper) {
+        let lastMoveSent = 0;
         interact('.pinboard-card').draggable({
             inertia: true,
             listeners: {
@@ -124,6 +144,18 @@ window.canvasPhysics = {
                     target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
                     target.setAttribute('data-x', x);
                     target.setAttribute('data-y', y);
+
+                    // Dynamically update connection lines without waiting for Blazor
+                    var cardId = target.getAttribute('data-id');
+                    if (cardId) {
+                        window.canvasPhysics.updateCardConnections(cardId, x, y);
+                        
+                        let now = Date.now();
+                        if (now - lastMoveSent > 50) {
+                            lastMoveSent = now;
+                            dotnetHelper.invokeMethodAsync('OnCardMovedLive', cardId, x, y).catch(()=>{});
+                        }
+                    }
                 },
                 end (event) {
                     var target = event.target;
@@ -139,16 +171,132 @@ window.canvasPhysics = {
         });
     },
 
-    triggerConfetti: function(x, y) {
-        // Adjust coordinates from px to relative (0-1) for canvas-confetti
-        var xRel = x / window.innerWidth;
-        var yRel = y / window.innerHeight;
+    getBoundaryPoint: function(cX, cY, tX, tY, w, h) {
+        var dx = tX - cX;
+        var dy = tY - cY;
+        if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return {x: cX, y: cY};
+        
+        var w2 = w / 2;
+        var h2 = h / 2;
+        var slope = dy / dx;
+        
+        var xEdge = dx > 0 ? w2 : -w2;
+        var yAtXEdge = slope * xEdge;
+        
+        if (Math.abs(yAtXEdge) <= h2) {
+            return { x: cX + xEdge, y: cY + yAtXEdge };
+        }
+        
+        var yEdge = dy > 0 ? h2 : -h2;
+        var xAtYEdge = yEdge / slope;
+        return { x: cX + xAtYEdge, y: cY + yEdge };
+    },
+
+    updateAllConnections: function() {
+        var lines = document.querySelectorAll('path.canvas-connection');
+        lines.forEach(line => {
+            var srcId = line.getAttribute('data-source-id');
+            var tgtId = line.getAttribute('data-target-id');
+            var srcCard = document.querySelector(`.pinboard-card[data-id="${srcId}"]`);
+            var tgtCard = document.querySelector(`.pinboard-card[data-id="${tgtId}"]`);
+            if (srcCard && tgtCard) {
+                var sx = parseFloat(srcCard.getAttribute('data-x')) || 0;
+                var sy = parseFloat(srcCard.getAttribute('data-y')) || 0;
+                var tx = parseFloat(tgtCard.getAttribute('data-x')) || 0;
+                var ty = parseFloat(tgtCard.getAttribute('data-y')) || 0;
+                
+                var w1 = srcCard.offsetWidth || 280;
+                var h1 = srcCard.offsetHeight || 160;
+                var w2 = tgtCard.offsetWidth || 280;
+                var h2 = tgtCard.offsetHeight || 160;
+
+                var c1X = sx + w1 / 2;
+                var c1Y = sy + h1 / 2;
+                var c2X = tx + w2 / 2;
+                var c2Y = ty + h2 / 2;
+
+                var p1 = window.canvasPhysics.getBoundaryPoint(c1X, c1Y, c2X, c2Y, w1, h1);
+                var p2 = window.canvasPhysics.getBoundaryPoint(c2X, c2Y, c1X, c1Y, w2, h2);
+                var midX = p1.x + (p2.x - p1.x) / 2;
+                line.setAttribute('d', `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`);
+            }
+        });
+    },
+
+    updateCardConnections: function(cardId, x, y) {
+        var srcCard = document.querySelector(`.pinboard-card[data-id="${cardId}"]`);
+        if (!srcCard) return;
+        var w1 = srcCard.offsetWidth || 280;
+        var h1 = srcCard.offsetHeight || 160;
+        var c1X = x + w1 / 2;
+        var c1Y = y + h1 / 2;
+
+        var sourceLines = document.querySelectorAll(`path.canvas-connection[data-source-id="${cardId}"]`);
+        sourceLines.forEach(line => {
+            var tgtId = line.getAttribute('data-target-id');
+            var tgtCard = document.querySelector(`.pinboard-card[data-id="${tgtId}"]`);
+            if (tgtCard) {
+                var tx = parseFloat(tgtCard.getAttribute('data-x')) || 0;
+                var ty = parseFloat(tgtCard.getAttribute('data-y')) || 0;
+                var w2 = tgtCard.offsetWidth || 280;
+                var h2 = tgtCard.offsetHeight || 160;
+                var c2X = tx + w2 / 2;
+                var c2Y = ty + h2 / 2;
+
+                var p1 = window.canvasPhysics.getBoundaryPoint(c1X, c1Y, c2X, c2Y, w1, h1);
+                var p2 = window.canvasPhysics.getBoundaryPoint(c2X, c2Y, c1X, c1Y, w2, h2);
+                var midX = p1.x + (p2.x - p1.x) / 2;
+                line.setAttribute('d', `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`);
+            }
+        });
+
+        var targetLines = document.querySelectorAll(`path.canvas-connection[data-target-id="${cardId}"]`);
+        targetLines.forEach(line => {
+            var sId = line.getAttribute('data-source-id');
+            var otherSrcCard = document.querySelector(`.pinboard-card[data-id="${sId}"]`);
+            if (otherSrcCard) {
+                var sx = parseFloat(otherSrcCard.getAttribute('data-x')) || 0;
+                var sy = parseFloat(otherSrcCard.getAttribute('data-y')) || 0;
+                var w2 = otherSrcCard.offsetWidth || 280;
+                var h2 = otherSrcCard.offsetHeight || 160;
+                var c2X = sx + w2 / 2;
+                var c2Y = sy + h2 / 2;
+
+                var p1 = window.canvasPhysics.getBoundaryPoint(c2X, c2Y, c1X, c1Y, w2, h2);
+                var p2 = window.canvasPhysics.getBoundaryPoint(c1X, c1Y, c2X, c2Y, w1, h1);
+                var midX = p1.x + (p2.x - p1.x) / 2;
+                line.setAttribute('d', `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`);
+            }
+        });
+    },
+
+    updateCardPosition: function(cardId, x, y) {
+        var card = document.querySelector(`.pinboard-card[data-id="${cardId}"]`);
+        if (card) {
+            card.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+            card.setAttribute('data-x', x);
+            card.setAttribute('data-y', y);
+            this.updateCardConnections(cardId, x, y);
+        }
+    },
+
+    triggerConfetti: function(itemId) {
+        var xRel = 0.5;
+        var yRel = 0.5;
+        
+        var card = document.querySelector(`.pinboard-card[data-id="${itemId}"]`);
+        if (card) {
+            var rect = card.getBoundingClientRect();
+            xRel = (rect.left + rect.width / 2) / window.innerWidth;
+            yRel = (rect.top + rect.height / 2) / window.innerHeight;
+        }
         
         confetti({
             particleCount: 100,
             spread: 70,
             origin: { x: xRel, y: yRel },
-            colors: ['#d4724a', '#8b6914', '#2a7a55', '#e8e1d9']
+            colors: ['#d4724a', '#8b6914', '#2a7a55', '#e8e1d9'],
+            zIndex: 99999
         });
         
         // Play satisfying sound

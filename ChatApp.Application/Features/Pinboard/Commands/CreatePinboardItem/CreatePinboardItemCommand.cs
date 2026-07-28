@@ -17,7 +17,8 @@ public record CreatePinboardItemCommand(
     double PositionY,
     Guid? LinkedMessageId,
     Guid? AssignedToUserId,
-    DateTime? Deadline) : IRequest<PinboardItemDto>;
+    DateTime? Deadline,
+    string? Color) : IRequest<PinboardItemDto>;
 
 public class CreatePinboardItemCommandHandler : IRequestHandler<CreatePinboardItemCommand, PinboardItemDto>
 {
@@ -43,6 +44,7 @@ public class CreatePinboardItemCommandHandler : IRequestHandler<CreatePinboardIt
             LinkedMessageId = request.LinkedMessageId,
             AssignedToUserId = request.AssignedToUserId,
             Deadline = request.Deadline,
+            Color = request.Color,
             ZIndex = 1
         };
 
@@ -56,6 +58,7 @@ public class CreatePinboardItemCommandHandler : IRequestHandler<CreatePinboardIt
             LinkedMessageId = item.LinkedMessageId,
             Type = item.Type,
             Content = item.Content,
+            Color = item.Color,
             PositionX = item.PositionX,
             PositionY = item.PositionY,
             ZIndex = item.ZIndex,

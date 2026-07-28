@@ -23,6 +23,10 @@ public class UpdatePinboardItemContentCommandHandler : IRequestHandler<UpdatePin
         if (item == null) return false;
 
         item.Content = request.Content;
+        if (request.Color != null)
+        {
+            item.Color = request.Color;
+        }
 
         _repository.Update(item);
         await _unitOfWork.SaveChangesAsync();

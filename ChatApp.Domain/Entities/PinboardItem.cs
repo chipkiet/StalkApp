@@ -14,6 +14,7 @@ namespace ChatApp.Domain.Entities
 
         public PinboardItemType Type { get; set; }
         public string Content { get; set; }
+        public string? Color { get; set; }
 
         // Position coordinates (px)
         public double PositionX { get; set; }

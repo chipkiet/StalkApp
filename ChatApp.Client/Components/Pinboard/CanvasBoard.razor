@@ -16,31 +16,55 @@
         
         @if (Connections != null && Items != null)
         {
+            var drawnPairs = new HashSet<string>();
             @foreach (var conn in Connections)
             {
+                var minId = conn.SourceItemId.CompareTo(conn.TargetItemId) < 0 ? conn.SourceItemId : conn.TargetItemId;
+                var maxId = conn.SourceItemId.CompareTo(conn.TargetItemId) > 0 ? conn.SourceItemId : conn.TargetItemId;
+                var pairKey = $"{minId}_{maxId}";
+                if (drawnPairs.Contains(pairKey)) continue;
+                drawnPairs.Add(pairKey);
+
                 var src = Items.FirstOrDefault(i => i.Id == conn.SourceItemId);
                 var tgt = Items.FirstOrDefault(i => i.Id == conn.TargetItemId);
                 if (src != null && tgt != null)
                 {
-                    // Tạm thời hardcode offset tới tâm thẻ (width: 300, height: 200)
-                    var x1 = src.PositionX + 150; 
-                    var y1 = src.PositionY + 100;
-                    var x2 = tgt.PositionX + 150;
-                    var y2 = tgt.PositionY + 100;
-                    var cx1 = x1 + Math.Abs(x2 - x1) / 2;
-                    var cy1 = y1;
-                    var cx2 = x2 - Math.Abs(x2 - x1) / 2;
-                    var cy2 = y2;
-                    
-                    <path @key="conn.Id" d="M @x1 @y1 C @cx1 @cy1, @cx2 @cy2, @x2 @y2" 
+                    var c1X = src.PositionX + 140; 
+                    var c1Y = src.PositionY + 80;
+                    var c2X = tgt.PositionX + 140;
+                    var c2Y = tgt.PositionY + 80;
+                    var p1 = GetBoundaryPoint(c1X, c1Y, c2X, c2Y);
+                    var p2 = GetBoundaryPoint(c2X, c2Y, c1X, c1Y);
+                    var midX = p1.X + (p2.X - p1.X) / 2;
+                    var pathData = System.FormattableString.Invariant($"M {p1.X} {p1.Y} C {midX} {p1.Y}, {midX} {p2.Y}, {p2.X} {p2.Y}");
+                    <path @key="conn.Id" 
+                          d="@pathData" 
+                          data-source-id="@conn.SourceItemId"
+                          data-target-id="@conn.TargetItemId"
                           fill="none" 
-                          stroke="var(--accent)" 
-                          stroke-width="3" 
-                          class="canvas-connection" />
+                          stroke="var(--accent-primary)" 
+                          stroke-width="6" 
+                          class="canvas-connection" 
+                          style="cursor: pointer;"
+                          @onclick="() => HandleConnectionDeleted(conn.Id)"
+                          title="Nhấn để xóa đường nối" />
                 }
             }
         }
     </svg>
+
+        @if (ActiveCursors != null)
+        {
+            @foreach (var cursor in ActiveCursors)
+            {
+                <div class="live-cursor" style="transform: translate(@(cursor.Value.X.ToString(System.Globalization.CultureInfo.InvariantCulture))px, @(cursor.Value.Y.ToString(System.Globalization.CultureInfo.InvariantCulture))px);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="@cursor.Value.Color" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.86a.5.5 0 0 0-.85.35Z"/>
+                    </svg>
+                    <span class="live-cursor-name" style="background-color: @cursor.Value.Color">@cursor.Value.Name</span>
+                </div>
+            }
+        }
 
     <!-- ══ KHUNG LÀM VIỆC CHÍNH ══ -->
     <div class="workspace-frame">
@@ -66,6 +90,26 @@
 </div>
 
 @code {
+    private (double X, double Y) GetBoundaryPoint(double cX, double cY, double tX, double tY, double width = 280, double height = 160)
+    {
+        double dx = tX - cX;
+        double dy = tY - cY;
+        if (Math.Abs(dx) < 0.001 && Math.Abs(dy) < 0.001) return (cX, cY);
+
+        double w = width / 2;
+        double h = height / 2;
+        double slope = dy / dx;
+
+        double xEdge = dx > 0 ? w : -w;
+        double yAtXEdge = slope * xEdge;
+
+        if (Math.Abs(yAtXEdge) <= h) return (cX + xEdge, cY + yAtXEdge);
+
+        double yEdge = dy > 0 ? h : -h;
+        double xAtYEdge = yEdge / slope;
+        return (cX + xAtYEdge, cY + yEdge);
+    }
+
     [Parameter]
     public List<PinboardItemDto> Items { get; set; } = new();
 
@@ -79,15 +123,27 @@
     public EventCallback<Guid> OnItemDeleted { get; set; }
 
     [Parameter]
-    public EventCallback<(Guid id, string content)> OnItemContentUpdated { get; set; }
+    public EventCallback<(Guid id, string content, string? color)> OnItemContentUpdated { get; set; }
 
     [Parameter]
     public EventCallback<(Guid sourceId, Guid targetId)> OnConnectionCreated { get; set; }
 
+    [Parameter]
+    public EventCallback<Guid> OnConnectionDeleted { get; set; }
+
     private Guid? connectingSourceId = null;
 
     [Parameter]
-    public EventCallback<(Guid, double, double)> OnItemMoved { get; set; }
+    public Dictionary<Guid, (double X, double Y, string Name, string Color)> ActiveCursors { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<(Guid id, double x, double y)> OnItemMoved { get; set; }
+
+    [Parameter]
+    public EventCallback<(Guid id, double x, double y)> OnItemMovedLive { get; set; }
+
+    [Parameter]
+    public EventCallback<(double x, double y)> OnCursorMovedEvent { get; set; }
 
     [Parameter]
     public EventCallback<(Guid, string, double, double)> OnItemCreatedFromDrop { get; set; }
@@ -102,6 +158,9 @@
             await JS.InvokeVoidAsync("canvasPhysics.initCanvas", _objRef, "pinboard-canvas");
             await JS.InvokeVoidAsync("canvasPhysics.initDraggableCards", _objRef);
         }
+        try {
+            await JS.InvokeVoidAsync("canvasPhysics.updateAllConnections");
+        } catch { }
     }
 
     [JSInvokable]
@@ -122,13 +181,40 @@
         }
     }
 
+    [JSInvokable]
+    public async Task OnCardMovedLive(string itemId, double x, double y)
+    {
+        if (Guid.TryParse(itemId, out var parsedId))
+        {
+            await OnItemMovedLive.InvokeAsync((parsedId, x, y));
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnItemContentUpdatedJs(string idStr, string newContent)
+    {
+        if (Guid.TryParse(idStr, out var id))
+        {
+            await OnItemContentUpdated.InvokeAsync((id, newContent, null));
+        }
+    }
+
+    [JSInvokable("OnCursorMoved")]
+    public async Task OnCursorMoved(double x, double y)
+    {
+        if (OnCursorMovedEvent.HasDelegate)
+        {
+            await OnCursorMovedEvent.InvokeAsync((x, y));
+        }
+    }
+
     private async Task HandleTaskCompleted(Guid itemId)
     {
         var item = Items?.FirstOrDefault(i => i.Id == itemId);
         if (item != null)
         {
             // Trigger confetti locally first for instant feedback
-            await JS.InvokeVoidAsync("canvasPhysics.triggerConfetti", item.PositionX + 100, item.PositionY + 50);
+            await JS.InvokeVoidAsync("canvasPhysics.triggerConfetti", itemId.ToString());
         }
         await OnTaskCompleted.InvokeAsync(itemId);
     }
@@ -158,7 +244,14 @@
         }
     }
 
-    private async Task HandleContentUpdated((Guid id, string content) data)
+        private async Task HandleConnectionDeleted(Guid connectionId)
+    {
+        if (OnConnectionDeleted.HasDelegate)
+        {
+            await OnConnectionDeleted.InvokeAsync(connectionId);
+        }
+    }
+    private async Task HandleContentUpdated((Guid id, string content, string? color) data)
     {
         await OnItemContentUpdated.InvokeAsync(data);
     }

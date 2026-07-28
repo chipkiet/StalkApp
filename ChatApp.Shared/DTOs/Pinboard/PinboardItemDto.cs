@@ -10,6 +10,7 @@ namespace ChatApp.Shared.DTOs.Pinboard
         public Guid? LinkedMessageId { get; set; }
         public PinboardItemType Type { get; set; }
         public string? Content { get; set; }
+        public string? Color { get; set; }
         
         public double PositionX { get; set; }
         public double PositionY { get; set; }

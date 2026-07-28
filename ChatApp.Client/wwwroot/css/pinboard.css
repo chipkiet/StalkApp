@@ -55,13 +55,21 @@
 
 .canvas-connection {
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-    animation: drawConnection 0.5s ease-out;
+    pointer-events: stroke; /* Allow clicking on the stroke */
+    transition: stroke 0.3s ease, filter 0.3s ease;
+    stroke-dasharray: 12 12;
+    animation: marching-ants 1s linear infinite;
 }
 
-@keyframes drawConnection {
-    from { stroke-dasharray: 0 1000; }
-    to { stroke-dasharray: 1000 1000; }
+.canvas-connection:hover {
+    stroke: #ff4444 !important; /* Red on hover to indicate deletion */
+    filter: drop-shadow(0 4px 8px rgba(255, 68, 68, 0.4));
 }
+
+@keyframes marching-ants {
+    to { stroke-dashoffset: -24; }
+}
+
 
 .canvas-board:active {
     cursor: grabbing;
@@ -268,4 +276,25 @@
 .canvas-panel.open {
     width: 45vw;
     opacity: 1;
+}
+
+/* Live Cursors */
+.live-cursor {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.05s linear;
+    transform-origin: top left;
+}
+.live-cursor-name {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
