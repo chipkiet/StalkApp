@@ -67,7 +67,7 @@ public class ChatBackgroundService : BackgroundService
                                 .SendAsync("ReceiveNewMessage", messageDto);
 
                             sm.IsSent = true;
-                            dbContext.ScheduledMessages.Update(sm);
+                            // dbContext.ScheduledMessages.Update(sm); // Không cần vì EF Core tự track thay đổi
                         }
                         catch (Exception ex)
                         {
@@ -80,7 +80,7 @@ public class ChatBackgroundService : BackgroundService
                         .Where(u => u.IsOnline)
                         .ToListAsync(stoppingToken);
 
-                    var activeUserIds = (await presence.GetOnlineUsersAsync()).ToList();
+                    var activeUserIds = (await presence.GetOnlineUsersAsync()).ToHashSet();
 
                     bool hasPresenceChanges = false;
                     foreach (var user in onlineUsers)
@@ -90,7 +90,6 @@ public class ChatBackgroundService : BackgroundService
                             // User is marked online in DB but not present in memory trackers
                             user.IsOnline = false;
                             user.UpdatedAt = now;
-                            dbContext.Users.Update(user);
                             hasPresenceChanges = true;
 
                             // Thông báo toàn server rằng user này đã offline
@@ -109,7 +108,7 @@ public class ChatBackgroundService : BackgroundService
                 _logger.LogError(ex, "Error occurred executing ChatBackgroundService.");
             }
 
-            // Chạy lặp mỗi 5 giây thay vì 1 phút để giảm độ trễ (delay) khi xuất tin nhắn
+            // Chạy lặp mỗi 10 giây để đảm bảo độ trễ xuất tin nhắn thấp và dọn dẹp trạng thái online thừa
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         }
 
