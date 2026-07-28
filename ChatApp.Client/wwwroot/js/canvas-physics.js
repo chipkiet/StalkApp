@@ -124,6 +124,48 @@ window.canvasPhysics = {
                     target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
                     target.setAttribute('data-x', x);
                     target.setAttribute('data-y', y);
+
+                    // Dynamically update connection lines without waiting for Blazor
+                    var cardId = target.getAttribute('data-id');
+                    if (cardId) {
+                        var centerX = x + 150;
+                        var centerY = y + 100;
+
+                        // Update lines where this card is the source
+                        var sourceLines = document.querySelectorAll(`path.canvas-connection[data-source-id="${cardId}"]`);
+                        sourceLines.forEach(line => {
+                            var d = line.getAttribute('d');
+                            if (d) {
+                                // M x1 y1 C midX y1, midX y2, x2 y2
+                                var parts = d.split(',');
+                                if (parts.length === 3) {
+                                    // Parse x2, y2 from the last part: " x2 y2"
+                                    var lastTokens = parts[2].trim().split(' ');
+                                    if(lastTokens.length >= 2) {
+                                        var x2 = parseFloat(lastTokens[lastTokens.length - 2]);
+                                        var y2 = parseFloat(lastTokens[lastTokens.length - 1]);
+                                        var midX = centerX + (x2 - centerX) / 2;
+                                        line.setAttribute('d', `M ${centerX} ${centerY} C ${midX} ${centerY}, ${midX} ${y2}, ${x2} ${y2}`);
+                                    }
+                                }
+                            }
+                        });
+
+                        // Update lines where this card is the target
+                        var targetLines = document.querySelectorAll(`path.canvas-connection[data-target-id="${cardId}"]`);
+                        targetLines.forEach(line => {
+                            var d = line.getAttribute('d');
+                            if (d) {
+                                var mMatch = d.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
+                                if (mMatch) {
+                                    var x1 = parseFloat(mMatch[1]);
+                                    var y1 = parseFloat(mMatch[2]);
+                                    var midX = x1 + (centerX - x1) / 2;
+                                    line.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${centerY}, ${centerX} ${centerY}`);
+                                }
+                            }
+                        });
+                    }
                 },
                 end (event) {
                     var target = event.target;
@@ -139,16 +181,23 @@ window.canvasPhysics = {
         });
     },
 
-    triggerConfetti: function(x, y) {
-        // Adjust coordinates from px to relative (0-1) for canvas-confetti
-        var xRel = x / window.innerWidth;
-        var yRel = y / window.innerHeight;
+    triggerConfetti: function(itemId) {
+        var xRel = 0.5;
+        var yRel = 0.5;
+        
+        var card = document.querySelector(`.pinboard-card[data-id="${itemId}"]`);
+        if (card) {
+            var rect = card.getBoundingClientRect();
+            xRel = (rect.left + rect.width / 2) / window.innerWidth;
+            yRel = (rect.top + rect.height / 2) / window.innerHeight;
+        }
         
         confetti({
             particleCount: 100,
             spread: 70,
             origin: { x: xRel, y: yRel },
-            colors: ['#d4724a', '#8b6914', '#2a7a55', '#e8e1d9']
+            colors: ['#d4724a', '#8b6914', '#2a7a55', '#e8e1d9'],
+            zIndex: 99999
         });
         
         // Play satisfying sound

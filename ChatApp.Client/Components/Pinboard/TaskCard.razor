@@ -2,9 +2,9 @@
 
 <div class="pinboard-card task-card @(Item.IsCompleted ? "completed" : "") @(IsConnecting ? "card-connecting" : "")" 
      data-id="@Item.Id" 
-     data-x="@Item.PositionX" 
-     data-y="@Item.PositionY"
-     style="transform: translate(@(Item.PositionX)px, @(Item.PositionY)px); z-index: @Item.ZIndex;">
+     data-x="@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))" 
+     data-y="@(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))"
+     style="transform: translate(@(Item.PositionX.ToString(System.Globalization.CultureInfo.InvariantCulture))px, @(Item.PositionY.ToString(System.Globalization.CultureInfo.InvariantCulture))px); z-index: @Item.ZIndex;">
     
     <div class="task-header">
         <span class="task-icon text-accent">
