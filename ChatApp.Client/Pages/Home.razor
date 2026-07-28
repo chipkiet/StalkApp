@@ -2620,10 +2620,4 @@
             await hubConnection.SendAsync("CreatePinboardItem", cmd);
         }
     }
-
-    private class UserOfflineMessage
-    {
-        public Guid UserId { get; set; }
-        public DateTime LastSeenAt { get; set; }
-    }
 }
