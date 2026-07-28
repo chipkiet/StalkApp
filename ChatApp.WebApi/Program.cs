@@ -74,4 +74,6 @@ app.MapHub<ChatHub>("/chathub");
 
 app.MapFallbackToFile("index.html");
 
-app.Run();
+app.Run();
+
+public partial class Program { }

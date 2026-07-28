@@ -32,6 +32,9 @@ public class GetMessagesQueryHandler : IRequestHandler<GetMessagesQuery, List<Me
     {
         var participants = await _participantRepository.FindAsync(p => p.ConversationId == request.ConversationId && p.UserId == request.UserId);
         var participant = participants.FirstOrDefault();
+        
+        if (participant == null)
+            throw new UnauthorizedAccessException("Bạn không có quyền truy cập vào cuộc trò chuyện này.");
             
         var messagesQuery = _messageRepository.GetQueryable()
             .Where(m => m.ConversationId == request.ConversationId);
