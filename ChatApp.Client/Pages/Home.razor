@@ -622,41 +622,190 @@
     </div>
 }
 
-<!-- ═══ MODAL HỒ SƠ (PROFILE) ═══ -->
+<!-- ═══ MODAL HỒ SƠ NHÓM (GROUP PROFILE) ═══ -->
 @if (showProfileModal && conversationParticipants != null)
 {
     <div class="modal-backdrop" @onclick="CloseProfileModal">
-        <div class="modal-box" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <h3>Thành viên nhóm (@conversationParticipants.Count)</h3>
-                <button class="modal-close-btn" @onclick="CloseProfileModal">✕</button>
+        <div class="modal-box group-profile-modal" @onclick:stopPropagation="true" style="max-width:480px; width:95%; padding:0; overflow:hidden;">
+
+            <!-- Header -->
+            <div style="background: var(--surface); padding: 28px 24px 20px; position: relative; border-bottom: 1px solid var(--border);">
+                <button class="modal-close-btn" @onclick="CloseProfileModal"
+                        style="position:absolute; top:12px; right:12px; background:var(--hover-bg); color:var(--text-muted); border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:1rem;">✕</button>
+
+                <!-- Group Avatar -->
+                <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+                    <div style="position:relative; width:80px; height:80px;">
+                        <div style="width:80px; height:80px; border-radius:50%; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:700; color:var(--text-primary); overflow:hidden; border:3px solid var(--border);">
+                            @if (!string.IsNullOrEmpty(selectedConversation?.AvatarUrl))
+                            {
+                                <img src="@selectedConversation.AvatarUrl" style="width:100%;height:100%;object-fit:cover;"/>
+                            }
+                            else
+                            {
+                                @GetInitials(selectedConversation?.Title)
+                            }
+                        </div>
+                        <label title="Đổi ảnh nhóm" style="position:absolute; bottom:0; right:0; width:26px; height:26px; border-radius:50%; background:var(--surface); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.8rem; color:var(--text-primary);">
+                            📷
+                            <InputFile OnChange="HandleGroupAvatarChange" style="display:none;" accept="image/*" />
+                        </label>
+                    </div>
+
+                    <!-- Editable Group Name -->
+                    @if (isEditingGroupName)
+                    {
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <input @bind="editGroupName" style="background:var(--hover-bg); border:1px solid var(--border); border-radius:8px; padding:4px 10px; color:var(--text-primary); font-size:1rem; text-align:center; outline:none; width:200px;"
+                                   placeholder="Tên nhóm..." />
+                            <button @onclick="SaveGroupName" style="background:var(--accent); border:none; border-radius:6px; padding:5px 10px; color:#fff; cursor:pointer; font-size:0.85rem;">✓</button>
+                            <button @onclick='() => { isEditingGroupName = false; }' style="background:var(--hover-bg); border:1px solid var(--border); border-radius:6px; padding:5px 10px; color:var(--text-muted); cursor:pointer; font-size:0.85rem;">✕</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="color:var(--text-primary); font-size:1.15rem; font-weight:600;">@(selectedConversation?.Title ?? "Nhóm chat")</span>
+                            <button @onclick='() => { editGroupName = selectedConversation?.Title ?? ""; isEditingGroupName = true; }'
+                                    title="Sửa tên nhóm" style="background:var(--hover-bg); border:1px solid var(--border); border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-primary); font-size:0.7rem;">✏️</button>
+                        </div>
+                    }
+                    <span style="color:var(--text-muted); font-size:0.85rem;">@conversationParticipants.Count thành viên</span>
+                </div>
             </div>
-            
-            <div class="modal-body" style="padding-top: 10px; max-height: 400px; overflow-y: auto;">
-                <div class="forward-list">
+
+            <!-- Body -->
+            <div style="padding: 16px 20px; max-height: 380px; overflow-y: auto;">
+
+                <!-- Thêm thành viên -->
+                @if (!showAddMemberPanel)
+                {
+                    <button @onclick="OpenAddMemberPanel"
+                            style="width:100%; padding:10px; background:var(--bg-card); border:1px dashed var(--border); border-radius:10px; color:var(--accent); cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px; transition: background 0.2s;">
+                        ➕ Thêm thành viên
+                    </button>
+                }
+                else
+                {
+                    <div style="background:var(--bg-card); border-radius:10px; padding:14px; margin-bottom:14px; border:1px solid var(--border);">
+                        <div style="font-weight:600; font-size:0.9rem; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>Chọn bạn bè để thêm</span>
+                            <button @onclick='() => { showAddMemberPanel = false; selectedFriendIds.Clear(); }'
+                                    style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:0.9rem;">✕</button>
+                        </div>
+                        @if (friendsNotInGroup == null)
+                        {
+                            <div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.85rem;">Đang tải...</div>
+                        }
+                        else if (!friendsNotInGroup.Any())
+                        {
+                            <div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.85rem;">Không có bạn bè nào để thêm.</div>
+                        }
+                        else
+                        {
+                            <div style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+                                @foreach (var f in friendsNotInGroup)
+                                {
+                                    bool isChecked = selectedFriendIds.Contains(f.UserId);
+                                    <div @onclick="() => ToggleFriendSelection(f.UserId)"
+                                         style="display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px; cursor:pointer; background:@(isChecked ? "rgba(var(--accent-rgb),0.1)" : "transparent"); transition: background 0.15s;">
+                                        <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:#fff; overflow:hidden; flex-shrink:0;">
+                                            @if (!string.IsNullOrEmpty(f.AvatarUrl))
+                                            { <img src="@f.AvatarUrl" style="width:100%;height:100%;object-fit:cover;"/> }
+                                            else { @GetInitials(f.DisplayName) }
+                                        </div>
+                                        <span style="flex:1; font-size:0.9rem;">@(f.DisplayName ?? f.PhoneNumber)</span>
+                                        <div style="width:18px; height:18px; border-radius:50%; border:2px solid var(--accent); background:@(isChecked ? "var(--accent)" : "transparent"); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; font-size:0.65rem;">
+                                            @if (isChecked) { <span>✓</span> }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            <button @onclick="AddSelectedMembers" disabled="@(!selectedFriendIds.Any() || isGroupActionLoading)"
+                                    style="width:100%; padding:8px; background:var(--accent); border:none; border-radius:8px; color:#fff; cursor:pointer; font-size:0.85rem; opacity:@(selectedFriendIds.Any() ? "1" : "0.5");">
+                                @if (isGroupActionLoading) { <span class="spinner-sm"></span> }
+                                Thêm @(selectedFriendIds.Count > 0 ? $"({selectedFriendIds.Count})" : "") thành viên
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (groupActionError != null)
+                {
+                    <div class="modal-error" style="margin-bottom:10px;">@groupActionError</div>
+                }
+
+                <!-- Danh sách thành viên -->
+                <div style="font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">
+                    Thành viên
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
                     @foreach (var p in conversationParticipants)
                     {
-                        <div class="forward-item" style="cursor: pointer; transition: background-color 0.2s;" @onclick="() => OpenMemberProfile(p.UserId)">
-                            <div class="forward-avatar">
+                        bool isAdmin = p.Role == 0; // 0 = Admin
+                        <div style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; transition: background 0.15s; cursor:pointer;"
+                             class="group-member-row"
+                             @onclick="() => OpenMemberProfile(p.UserId)">
+                            <div style="width:38px; height:38px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; color:#fff; overflow:hidden; flex-shrink:0;">
                                 @if (!string.IsNullOrEmpty(p.AvatarUrl))
-                                {
-                                    <img src="@p.AvatarUrl" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
-                                }
-                                else
-                                {
-                                    @GetInitials(p.DisplayName)
-                                }
+                                { <img src="@p.AvatarUrl" style="width:100%;height:100%;object-fit:cover;"/> }
+                                else { @GetInitials(p.DisplayName) }
                             </div>
-                            <div class="forward-name" style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-                                <span style="font-weight: 500;">@(p.DisplayName ?? "Người dùng")</span>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-weight:500; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">@(p.DisplayName ?? "Người dùng")</div>
                                 @if (!string.IsNullOrEmpty(p.PhoneNumber))
                                 {
-                                    <span style="font-size: 0.8rem; color: var(--text-muted);">@p.PhoneNumber</span>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">@p.PhoneNumber</div>
                                 }
                             </div>
+                            @if (isAdmin)
+                            {
+                                <span style="font-size:0.7rem; background:rgba(255,165,0,0.15); color:orange; padding:2px 8px; border-radius:20px; font-weight:600; flex-shrink:0;">👑 Trưởng nhóm</span>
+                            }
+                            @if (isCurrentUserAdmin && !isAdmin && p.UserId != currentUserId)
+                            {
+                                <button @onclick:stopPropagation="true"
+                                        @onclick="() => RemoveMember(p.UserId)"
+                                        title="Xóa thành viên"
+                                        style="background:none; border:none; cursor:pointer; color:#ff4d4f; font-size:1rem; padding:4px; border-radius:6px; flex-shrink:0; transition: background 0.15s;">🗑️</button>
+                            }
                         </div>
                     }
                 </div>
+
+                <!-- Giải tán nhóm (Admin only) -->
+                @if (isCurrentUserAdmin)
+                {
+                    <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px;">
+                        <button @onclick="ConfirmDisbandGroup" disabled="@isGroupActionLoading"
+                                style="width:100%; padding:10px; background:rgba(255,77,79,0.1); border:1px solid rgba(255,77,79,0.4); border-radius:10px; color:#ff4d4f; cursor:pointer; font-size:0.9rem; font-weight:600; transition: background 0.2s;">
+                            @if (isGroupActionLoading) { <span class="spinner-sm"></span> }
+                            🔴 Giải tán nhóm
+                        </button>
+                    </div>
+                }
+
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Confirm Disband Modal -->
+@if (showDisbandConfirm)
+{
+    <div class="modal-backdrop" style="z-index:1100;">
+        <div class="modal-box" style="max-width:360px; text-align:center; padding:28px 24px;" @onclick:stopPropagation="true">
+            <div style="font-size:2.5rem; margin-bottom:12px;">⚠️</div>
+            <h3 style="margin-bottom:8px; color:var(--text-primary);">Xác nhận giải tán nhóm?</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">Hành động này không thể hoàn tác. Tất cả thành viên sẽ bị xóa khỏi nhóm.</p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button @onclick='() => showDisbandConfirm = false'
+                        style="padding:9px 20px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-primary); cursor:pointer;">Hủy</button>
+                <button @onclick="DisbandGroup" disabled="@isGroupActionLoading"
+                        style="padding:9px 20px; border-radius:8px; border:none; background:#ff4d4f; color:#fff; cursor:pointer; font-weight:600;">
+                    @if (isGroupActionLoading) { <span class="spinner-sm"></span> }
+                    Giải tán
+                </button>
             </div>
         </div>
     </div>
@@ -773,7 +922,18 @@
     // ── Profile Modal ────────────────────────────────────────
     private bool showProfileModal = false;
     private List<ParticipantProfileDto>? conversationParticipants;
-    
+
+    // ── Group Management State ───────────────────────────────
+    private bool isCurrentUserAdmin = false;
+    private bool isEditingGroupName = false;
+    private string editGroupName = "";
+    private bool showAddMemberPanel = false;
+    private List<FriendForGroupDto>? friendsNotInGroup;
+    private List<Guid> selectedFriendIds = new();
+    private bool isGroupActionLoading = false;
+    private string? groupActionError;
+    private bool showDisbandConfirm = false;
+
     public class ParticipantProfileDto
     {
         public Guid UserId { get; set; }
@@ -781,6 +941,15 @@
         public string? PhoneNumber { get; set; }
         public string? AvatarUrl { get; set; }
         public string? Bio { get; set; }
+        public int Role { get; set; } // 0 = Admin, 1 = Member
+    }
+
+    public class FriendForGroupDto
+    {
+        public Guid UserId { get; set; }
+        public string? DisplayName { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? AvatarUrl { get; set; }
     }
 
     private ChatApp.Client.Shared.UserProfileModal userProfileModal = default!;
@@ -807,6 +976,13 @@
                 else
                 {
                     conversationParticipants = res;
+                    isCurrentUserAdmin = res.Any(p => p.UserId == currentUserId && p.Role == 0);
+                    isEditingGroupName = false;
+                    showAddMemberPanel = false;
+                    friendsNotInGroup = null;
+                    selectedFriendIds.Clear();
+                    groupActionError = null;
+                    showDisbandConfirm = false;
                     showProfileModal = true;
                     StateHasChanged();
                 }
@@ -829,6 +1005,193 @@
     private void CloseProfileModal()
     {
         showProfileModal = false;
+        isEditingGroupName = false;
+        showAddMemberPanel = false;
+        friendsNotInGroup = null;
+        selectedFriendIds.Clear();
+        groupActionError = null;
+        showDisbandConfirm = false;
+    }
+
+    // ── Group: Sửa tên nhóm ──────────────────────────────────
+    private async Task SaveGroupName()
+    {
+        if (selectedConversation == null || string.IsNullOrWhiteSpace(editGroupName)) return;
+        isGroupActionLoading = true;
+        groupActionError = null;
+        try
+        {
+            var body = new { Title = editGroupName.Trim(), AvatarUrl = (string?)null };
+            var response = await Http.PutAsJsonAsync($"/api/conversations/{selectedConversation.ConversationId}/group", body);
+            if (response.IsSuccessStatusCode)
+            {
+                isEditingGroupName = false;
+                // Update local state
+                if (inboxItems != null)
+                {
+                    var idx = inboxItems.FindIndex(i => i.ConversationId == selectedConversation.ConversationId);
+                    if (idx != -1)
+                    {
+                        inboxItems[idx] = inboxItems[idx] with { Title = editGroupName.Trim() };
+                        selectedConversation = inboxItems[idx];
+                    }
+                }
+            }
+            else
+            {
+                groupActionError = "Không thể cập nhật tên nhóm.";
+            }
+        }
+        catch { groupActionError = "Lỗi kết nối.";
+        }
+        finally { isGroupActionLoading = false; StateHasChanged(); }
+    }
+
+    // ── Group: Đổi ảnh nhóm ──────────────────────────────────
+    private async Task HandleGroupAvatarChange(InputFileChangeEventArgs e)
+    {
+        if (selectedConversation == null) return;
+        isGroupActionLoading = true;
+        groupActionError = null;
+        try
+        {
+            var file = e.File;
+            using var content = new MultipartFormDataContent();
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            content.Add(new StreamContent(stream), "file", file.Name);
+
+            var uploadResp = await Http.PostAsync("/api/attachments/upload", content);
+            if (!uploadResp.IsSuccessStatusCode)
+            {
+                groupActionError = "Không thể tải ảnh lên.";
+                return;
+            }
+            var uploadResult = await uploadResp.Content.ReadFromJsonAsync<UploadResultDto>();
+            if (uploadResult?.Url == null) { groupActionError = "Không nhận được URL ảnh."; return; }
+
+            var body = new { Title = (string?)null, AvatarUrl = uploadResult.Url };
+            var response = await Http.PutAsJsonAsync($"/api/conversations/{selectedConversation.ConversationId}/group", body);
+            if (response.IsSuccessStatusCode)
+            {
+                if (inboxItems != null)
+                {
+                    var idx = inboxItems.FindIndex(i => i.ConversationId == selectedConversation.ConversationId);
+                    if (idx != -1)
+                    {
+                        inboxItems[idx] = inboxItems[idx] with { AvatarUrl = uploadResult.Url };
+                        selectedConversation = inboxItems[idx];
+                    }
+                }
+            }
+            else { groupActionError = "Không thể cập nhật ảnh nhóm."; }
+        }
+        catch { groupActionError = "Lỗi kết nối."; }
+        finally { isGroupActionLoading = false; StateHasChanged(); }
+    }
+
+    private class UploadResultDto { public string? Url { get; set; } }
+
+    // ── Group: Mở panel thêm thành viên ─────────────────────
+    private async Task OpenAddMemberPanel()
+    {
+        showAddMemberPanel = true;
+        friendsNotInGroup = null;
+        selectedFriendIds.Clear();
+        try
+        {
+            var allFriends = await Http.GetFromJsonAsync<List<ChatApp.Shared.DTOs.Friends.FriendDto>>("/api/friends");
+            if (allFriends != null && conversationParticipants != null)
+            {
+                var existingIds = conversationParticipants.Select(p => p.UserId).ToHashSet();
+                friendsNotInGroup = allFriends
+                    .Where(f => !existingIds.Contains(f.UserId))
+                    .Select(f => new FriendForGroupDto
+                    {
+                        UserId = f.UserId,
+                        DisplayName = f.DisplayName,
+                        PhoneNumber = f.PhoneNumber,
+                        AvatarUrl = f.AvatarUrl
+                    }).ToList();
+            }
+        }
+        catch { friendsNotInGroup = new(); }
+        StateHasChanged();
+    }
+
+    private void ToggleFriendSelection(Guid friendId)
+    {
+        if (selectedFriendIds.Contains(friendId)) selectedFriendIds.Remove(friendId);
+        else selectedFriendIds.Add(friendId);
+        StateHasChanged();
+    }
+
+    private async Task AddSelectedMembers()
+    {
+        if (selectedConversation == null || !selectedFriendIds.Any()) return;
+        isGroupActionLoading = true;
+        groupActionError = null;
+        try
+        {
+            var body = new { UserIds = selectedFriendIds };
+            var response = await Http.PostAsJsonAsync($"/api/conversations/{selectedConversation.ConversationId}/members", body);
+            if (response.IsSuccessStatusCode)
+            {
+                showAddMemberPanel = false;
+                selectedFriendIds.Clear();
+                // Reload participants
+                var res = await Http.GetFromJsonAsync<List<ParticipantProfileDto>>($"/api/conversations/{selectedConversation.ConversationId}/participants");
+                if (res != null) conversationParticipants = res;
+            }
+            else { groupActionError = "Không thể thêm thành viên."; }
+        }
+        catch { groupActionError = "Lỗi kết nối."; }
+        finally { isGroupActionLoading = false; StateHasChanged(); }
+    }
+
+    // ── Group: Xóa thành viên (Admin only) ──────────────────
+    private async Task RemoveMember(Guid targetUserId)
+    {
+        if (selectedConversation == null) return;
+        isGroupActionLoading = true;
+        groupActionError = null;
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/conversations/{selectedConversation.ConversationId}/members/{targetUserId}");
+            if (response.IsSuccessStatusCode)
+            {
+                conversationParticipants?.RemoveAll(p => p.UserId == targetUserId);
+            }
+            else { groupActionError = "Không thể xóa thành viên."; }
+        }
+        catch { groupActionError = "Lỗi kết nối."; }
+        finally { isGroupActionLoading = false; StateHasChanged(); }
+    }
+
+    // ── Group: Giải tán nhóm (Admin only) ───────────────────
+    private void ConfirmDisbandGroup() => showDisbandConfirm = true;
+
+    private async Task DisbandGroup()
+    {
+        if (selectedConversation == null) return;
+        isGroupActionLoading = true;
+        groupActionError = null;
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/conversations/{selectedConversation.ConversationId}/disband");
+            if (response.IsSuccessStatusCode)
+            {
+                var disbandedId = selectedConversation.ConversationId;
+                showDisbandConfirm = false;
+                showProfileModal = false;
+                selectedConversation = null;
+                selectedId = Guid.Empty;
+                messages = null;
+                inboxItems?.RemoveAll(i => i.ConversationId == disbandedId);
+            }
+            else { groupActionError = "Không thể giải tán nhóm."; showDisbandConfirm = false; }
+        }
+        catch { groupActionError = "Lỗi kết nối."; showDisbandConfirm = false; }
+        finally { isGroupActionLoading = false; StateHasChanged(); }
     }
 
     // ── Call State ───────────────────────────────────────────
@@ -1162,6 +1525,79 @@
                     InvokeAsync(StateHasChanged);
                 }
             }
+        });
+
+        // ── Group Management SignalR Events ─────────────────────
+        hubConnection.On<Guid, string?, string?>("GroupUpdated", (convId, title, avatarUrl) =>
+        {
+            if (inboxItems != null)
+            {
+                var idx = inboxItems.FindIndex(i => i.ConversationId == convId);
+                if (idx != -1)
+                {
+                    var updated = inboxItems[idx];
+                    if (title != null) updated = updated with { Title = title };
+                    if (avatarUrl != null) updated = updated with { AvatarUrl = avatarUrl };
+                    inboxItems[idx] = updated;
+                    if (selectedConversation?.ConversationId == convId)
+                        selectedConversation = updated;
+                    InvokeAsync(StateHasChanged);
+                }
+            }
+        });
+
+        hubConnection.On<Guid, System.Collections.Generic.List<Guid>>("MembersAdded", (convId, userIds) =>
+        {
+            // Reload participants nếu đang xem modal của nhóm đó
+            if (showProfileModal && selectedConversation?.ConversationId == convId)
+            {
+                InvokeAsync(async () =>
+                {
+                    var res = await Http.GetFromJsonAsync<List<ParticipantProfileDto>>($"/api/conversations/{convId}/participants");
+                    if (res != null)
+                    {
+                        conversationParticipants = res;
+                        isCurrentUserAdmin = res.Any(p => p.UserId == currentUserId && p.Role == 0);
+                        StateHasChanged();
+                    }
+                });
+            }
+        });
+
+        hubConnection.On<Guid, Guid>("MemberRemoved", (convId, removedUserId) =>
+        {
+            if (removedUserId == currentUserId)
+            {
+                // Mình bị xóa khỏi nhóm
+                inboxItems?.RemoveAll(i => i.ConversationId == convId);
+                if (selectedConversation?.ConversationId == convId)
+                {
+                    selectedConversation = null;
+                    selectedId = Guid.Empty;
+                    messages = null;
+                    showProfileModal = false;
+                }
+                InvokeAsync(StateHasChanged);
+            }
+            else if (showProfileModal && selectedConversation?.ConversationId == convId)
+            {
+                conversationParticipants?.RemoveAll(p => p.UserId == removedUserId);
+                InvokeAsync(StateHasChanged);
+            }
+        });
+
+        hubConnection.On<Guid>("GroupDisbanded", (convId) =>
+        {
+            inboxItems?.RemoveAll(i => i.ConversationId == convId);
+            if (selectedConversation?.ConversationId == convId)
+            {
+                selectedConversation = null;
+                selectedId = Guid.Empty;
+                messages = null;
+                showProfileModal = false;
+                showDisbandConfirm = false;
+            }
+            InvokeAsync(StateHasChanged);
         });
 
         objRef = DotNetObjectReference.Create(this);

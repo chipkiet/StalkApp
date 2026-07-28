@@ -40,6 +40,84 @@
 
     --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --font: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* ── Alias variables (light mode defaults) ── */
+    --accent: var(--accent-primary);
+    --accent-rgb: 212, 114, 74;
+    --bg-main: var(--bg-primary);
+    --bg-card: var(--surface);
+    --chat-bg: #f4ede6;
+    --modal-bg: var(--surface);
+}
+
+/* ── Dark Mode (browser preference) ─────────── */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #0f0f10;
+        --surface: #1a1a1e;
+        --sidebar-bg: #141416;
+        --border: #2a2a30;
+        --border-hover: #3a3a45;
+        --hover-bg: #222228;
+
+        --accent-primary: #e07b55;
+        --accent-bg-soft: #2a1a12;
+        --accent-border: #5a3020;
+
+        --text-primary: #f0ece8;
+        --text-secondary: #a89e96;
+        --text-muted: #6b6560;
+
+        --status-success: #3a9a70;
+        --status-info: #4a8dc4;
+        --status-warning: #c49020;
+        --status-danger: #d4523a;
+        --status-danger-bg: #2a1008;
+
+        --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.3);
+        --focus-ring: 0 0 0 3px rgba(224, 123, 85, 0.3);
+
+        --accent: var(--accent-primary);
+        --accent-rgb: 224, 123, 85;
+        --bg-main: var(--bg-primary);
+        --bg-card: var(--surface);
+        --chat-bg: #111116;
+        --modal-bg: #1e1e24;
+    }
+}
+
+/* ── Dark Mode (manual toggle via .dark-theme class) ─ */
+.dark-theme {
+    --bg-primary: #0f0f10;
+    --surface: #1a1a1e;
+    --sidebar-bg: #141416;
+    --border: #2a2a30;
+    --border-hover: #3a3a45;
+    --hover-bg: #222228;
+
+    --accent-primary: #e07b55;
+    --accent-bg-soft: #2a1a12;
+    --accent-border: #5a3020;
+
+    --text-primary: #f0ece8;
+    --text-secondary: #a89e96;
+    --text-muted: #6b6560;
+
+    --status-success: #3a9a70;
+    --status-info: #4a8dc4;
+    --status-warning: #c49020;
+    --status-danger: #d4523a;
+    --status-danger-bg: #2a1008;
+
+    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --focus-ring: 0 0 0 3px rgba(224, 123, 85, 0.3);
+
+    --accent: var(--accent-primary);
+    --accent-rgb: 224, 123, 85;
+    --bg-main: var(--bg-primary);
+    --bg-card: var(--surface);
+    --chat-bg: #111116;
+    --modal-bg: #1e1e24;
 }
 
 /* ── Reset & Base ───────────────────────────── */
