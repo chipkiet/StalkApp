@@ -158,6 +158,9 @@
             await JS.InvokeVoidAsync("canvasPhysics.initCanvas", _objRef, "pinboard-canvas");
             await JS.InvokeVoidAsync("canvasPhysics.initDraggableCards", _objRef);
         }
+        try {
+            await JS.InvokeVoidAsync("canvasPhysics.updateAllConnections");
+        } catch { }
     }
 
     [JSInvokable]
