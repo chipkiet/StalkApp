@@ -80,6 +80,10 @@
             {
                 <TaskCard @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskCompleted="HandleTaskCompleted" OnTaskDeleted="HandleItemDeleted" OnContentUpdated="HandleContentUpdated" />
             }
+            else if (item.Type == PinboardItemType.Image)
+            {
+                <ImageCard @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskDeleted="HandleItemDeleted" />
+            }
             else
             {
                 <StickyNote @key="item.Id" Item="item" IsConnecting="isConnecting" OnConnectClicked="HandleConnectClicked" OnTaskDeleted="HandleItemDeleted" OnContentUpdated="HandleContentUpdated" />

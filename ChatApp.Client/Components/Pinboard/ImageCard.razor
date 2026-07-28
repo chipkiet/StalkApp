@@ -32,19 +32,19 @@
     public bool IsConnecting { get; set; }
 
     [Parameter]
-    public EventCallback<Guid> OnConnectRequested { get; set; }
+    public EventCallback<Guid> OnConnectClicked { get; set; }
 
     [Parameter]
-    public EventCallback<Guid> OnDeleteRequested { get; set; }
+    public EventCallback<Guid> OnTaskDeleted { get; set; }
 
     private async Task HandleConnectClicked()
     {
-        await OnConnectRequested.InvokeAsync(Item.Id);
+        await OnConnectClicked.InvokeAsync(Item.Id);
     }
 
     private async Task DeleteCard()
     {
-        await OnDeleteRequested.InvokeAsync(Item.Id);
+        await OnTaskDeleted.InvokeAsync(Item.Id);
     }
 
     private string GetImageUrl(string? content)
