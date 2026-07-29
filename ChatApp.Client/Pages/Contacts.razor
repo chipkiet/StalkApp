@@ -16,7 +16,7 @@
     <!-- ═══ HEADER ═══ -->
     <div class="contacts-header">
         <div class="contacts-header-title">
-            <span class="contacts-header-icon">👥</span>
+            <span class="contacts-header-icon"><Icon Name="users" Size="18" /></span>
             <h1>Danh bạ</h1>
         </div>
         <div class="contacts-header-count">
@@ -56,7 +56,7 @@
         {
             <!-- Search trong danh bạ -->
             <div class="contacts-search-bar">
-                <span class="search-icon">🔍</span>
+                <span class="search-icon"><Icon Name="search" Size="18" /></span>
                 <input type="text"
                        class="contacts-search-input"
                        placeholder="Tìm trong danh bạ..."
@@ -82,7 +82,7 @@
             else if (friends == null || friends.Count == 0)
             {
                 <div class="contacts-empty">
-                    <div class="contacts-empty-icon">👤</div>
+                    <div class="contacts-empty-icon"><Icon Name="user" Size="18" /></div>
                     <p>Chưa có bạn bè nào</p>
                     <span>Hãy thêm bạn bè bằng cách tìm kiếm số điện thoại</span>
                     <button class="btn-add-first" @onclick='() => SetTab("search")'>Thêm bạn ngay</button>
@@ -99,7 +99,7 @@
                 if (!filtered.Any())
                 {
                     <div class="contacts-empty">
-                        <div class="contacts-empty-icon">🔍</div>
+                        <div class="contacts-empty-icon"><Icon Name="search" Size="18" /></div>
                         <p>Không tìm thấy kết quả</p>
                     </div>
                 }
@@ -152,10 +152,10 @@
 
                                     <div class="friend-actions">
                                         <button class="btn-chat" @onclick="() => GoToChat(friend.UserId)" title="Nhắn tin">
-                                            💬
+                                            <Icon Name="message" Size="16" />
                                         </button>
                                         <button class="btn-remove" @onclick="() => ConfirmRemoveFriend(friend)" title="Xóa bạn">
-                                            ✕
+                                            <Icon Name="x" Size="16" />
                                         </button>
                                     </div>
                                 </div>
@@ -224,7 +224,7 @@
                                     ✓ Chấp nhận
                                 </button>
                                 <button class="btn-decline" @onclick="() => DeclineRequest(req)" disabled="@isActioning">
-                                    ✕ Từ chối
+                                    <Icon Name="x" Size="16" /> Từ chối
                                 </button>
                             </div>
                         </div>
@@ -238,7 +238,7 @@
         {
             <div class="add-friend-panel">
                 <div class="add-friend-hero">
-                    <div class="add-friend-hero-icon">🔍</div>
+                    <div class="add-friend-hero-icon"><Icon Name="search" Size="18" /></div>
                     <h2>Tìm bạn mới</h2>
                     <p>Nhập số điện thoại để tìm kiếm và kết bạn</p>
                 </div>
@@ -273,7 +273,7 @@
                 @if (searchError != null)
                 {
                     <div class="search-error">
-                        <span>⚠️</span>
+                        <span><Icon Name="alert" Size="24" /></span>
                         <span>@searchError</span>
                     </div>
                 }
@@ -335,7 +335,7 @@
 {
     <div class="modal-overlay" @onclick="CancelRemove">
         <div class="modal-box" @onclick:stopPropagation="true">
-            <div class="modal-icon">⚠️</div>
+            <div class="modal-icon"><Icon Name="alert" Size="24" /></div>
             <h3>Xóa bạn bè?</h3>
             <p>Bạn có chắc muốn xóa <strong>@removingFriend.DisplayName</strong> khỏi danh bạ không?</p>
             <div class="modal-actions">

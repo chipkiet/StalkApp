@@ -21,7 +21,7 @@
     <div class="inbox-panel" style="width: @(inboxWidth)px; position: relative;">
         <div class="inbox-header">
             <h2 class="inbox-title">Tin nhắn</h2>
-            <button class="inbox-new-btn" title="Tạo cuộc trò chuyện mới" @onclick="OpenNewConvModal">＋</button>
+            <button class="inbox-new-btn" title="Tạo cuộc trò chuyện mới" @onclick="OpenNewConvModal"><Icon Name="plus" Size="16" /></button>
         </div>
 
         @if (isLoading)
@@ -40,7 +40,7 @@
         else if (errorMessage != null)
         {
             <div class="inbox-error">
-                <span>⚠️</span>
+                <span><Icon Name="alert" Size="24" /></span>
                 <p>@errorMessage</p>
                 <button class="btn-retry" @onclick="LoadInbox">Thử lại</button>
             </div>
@@ -48,9 +48,9 @@
         else if (inboxItems == null || !inboxItems.Any())
         {
             <div class="inbox-empty">
-                <div class="inbox-empty-icon">💬</div>
+                <div class="inbox-empty-icon"><Icon Name="message" Size="24" /></div>
                 <p>Chưa có cuộc trò chuyện nào</p>
-                <span>Nhấn <strong>＋</strong> để bắt đầu</span>
+                <span>Nhấn <strong><Icon Name="plus" Size="16" /></strong> để bắt đầu</span>
             </div>
         }
         else
@@ -73,7 +73,7 @@
                         <div class="conv-info">
                             <div class="conv-top" style="display: flex; justify-content: space-between; align-items: center;">
                                 <span class="conv-name" style="display: flex; align-items: center; gap: 4px;">
-                                    @if (item.IsPinned) { <span title="Đã ghim">📌</span> }
+                                    @if (item.IsPinned) { <span title="Đã ghim"><Icon Name="pin" Size="14" /></span> }
                                     @(item.Title ?? "Cuộc trò chuyện")
                                 </span>
                                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -81,7 +81,7 @@
                                             @onclick:stopPropagation="true" 
                                             @onclick="() => TogglePin(item.ConversationId, !item.IsPinned)" 
                                             title="@(item.IsPinned ? "Bỏ ghim" : "Ghim hội thoại")">
-                                        @(item.IsPinned ? "📌" : "📍")
+                                        <Icon Name="@(item.IsPinned ? "pin" : "pin-off")" Size="14" />
                                     </button>
                                     <span class="conv-time">@FormatTime(item.LastMessageAt)</span>
                                 </div>
@@ -113,7 +113,7 @@
                     <div class="placeholder-logo-text">STALK</div>
                 </div>
                 <p class="placeholder-title">Chào mừng đến với STALKchat</p>
-                <p class="placeholder-sub">Chọn một cuộc trò chuyện hoặc nhấn <strong>＋</strong> để bắt đầu</p>
+                <p class="placeholder-sub">Chọn một cuộc trò chuyện hoặc nhấn <strong><Icon Name="plus" Size="16" /></strong> để bắt đầu</p>
             </div>
         }
         else
@@ -140,15 +140,15 @@
                         bool isMuted = selectedConversation.IsMuted;
                         <button class="btn-call" title="@(isMuted ? "Bật thông báo" : "Tắt thông báo")"
                                 @onclick="() => ToggleMute(selectedConversation)">
-                            @(isMuted ? "🔕" : "🔔")
+                            <Icon Name="@(isMuted ? "bell-off" : "bell")" Size="18" />
                         </button>
                     }
                     <button class="btn-call" title="Bảng Công Việc (Pinboard)" @onclick="ToggleCanvas" style="@(isCanvasOpen ? "color: var(--accent);" : "")">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline><polyline points="7.5 19.79 7.5 14.6 3 12"></polyline><polyline points="21 12 16.5 14.6 16.5 19.79"></polyline><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     </button>
-                    <button class="btn-call" title="Gọi thoại" @onclick="() => InitiateCall(false)">📞</button>
-                    <button class="btn-call" title="Gọi video" @onclick="() => InitiateCall(true)">📹</button>
-                    <button class="btn-call" style="color: #ff4d4f;" title="Xóa cuộc trò chuyện" @onclick="() => OpenDeleteModal(selectedConversation.ConversationId)">🗑️</button>
+                    <button class="btn-call" title="Gọi thoại" @onclick="() => InitiateCall(false)"><Icon Name="phone" Size="18" /></button>
+                    <button class="btn-call" title="Gọi video" @onclick="() => InitiateCall(true)"><Icon Name="video" Size="18" /></button>
+                    <button class="btn-call" style="color: #ff4d4f;" title="Xóa cuộc trò chuyện" @onclick="() => OpenDeleteModal(selectedConversation.ConversationId)"><Icon Name="trash" Size="18" /></button>
                 </div>
             </div>
             <div class="chat-messages-area" id="chat-messages-area">
@@ -175,8 +175,8 @@
                                 else if (isSelf)
                                 {
                                     <div class="msg-actions">
-                                        <button class="btn-msg-action" title="Trả lời" @onclick="() => SetReply(msg)">↩</button>
-                                        <button class="btn-msg-action" title="Chuyển tiếp" @onclick="() => OpenForwardModal(msg.Id)">↪</button>
+                                        <button class="btn-msg-action" title="Trả lời" @onclick="() => SetReply(msg)"><Icon Name="reply" Size="16" /></button>
+                                        <button class="btn-msg-action" title="Chuyển tiếp" @onclick="() => OpenForwardModal(msg.Id)"><Icon Name="forward" Size="16" /></button>
                                     </div>
                                 }
                                 else
@@ -208,7 +208,7 @@
                                         else if (msg.MessageType == MessageType.File && !string.IsNullOrEmpty(msg.AttachmentUrl))
                                         {
                                             <a href="@msg.AttachmentUrl" target="_blank" class="msg-file">
-                                                <span>📄</span> @(msg.AttachmentName ?? "File đính kèm")
+                                                <span><Icon Name="file" Size="16" /></span> @(msg.AttachmentName ?? "File đính kèm")
                                             </a>
                                         }
                                         else
@@ -231,7 +231,7 @@
                                 {
                                     <div class="msg-actions">
                                         <div class="reaction-picker-wrapper">
-                                            <button class="btn-msg-action btn-react" title="Thả cảm xúc">☺</button>
+                                            <button class="btn-msg-action btn-react" title="Thả cảm xúc"><Icon Name="smile" Size="16" /></button>
                                             <div class="reaction-picker">
                                                 <button @onclick='() => AddReaction(msg.Id, "👍")'>👍</button>
                                                 <button @onclick='() => AddReaction(msg.Id, "❤️")'>❤️</button>
@@ -241,8 +241,8 @@
                                                 <button @onclick='() => AddReaction(msg.Id, "😡")'>😡</button>
                                             </div>
                                         </div>
-                                        <button class="btn-msg-action" title="Trả lời" @onclick="() => SetReply(msg)">↩</button>
-                                        <button class="btn-msg-action" title="Chuyển tiếp" @onclick="() => OpenForwardModal(msg.Id)">↪</button>
+                                        <button class="btn-msg-action" title="Trả lời" @onclick="() => SetReply(msg)"><Icon Name="reply" Size="16" /></button>
+                                        <button class="btn-msg-action" title="Chuyển tiếp" @onclick="() => OpenForwardModal(msg.Id)"><Icon Name="forward" Size="16" /></button>
                                     </div>
                                 }
                             </div>
@@ -272,7 +272,7 @@
                         <span class="reply-title">Đang trả lời tin nhắn</span>
                         <span class="reply-text">@TruncateMessage(replyingToMessage.Content ?? "Tệp đính kèm")</span>
                     </div>
-                    <button class="btn-cancel-reply" @onclick="ClearReply" title="Hủy trả lời">✕</button>
+                    <button class="btn-cancel-reply" @onclick="ClearReply" title="Hủy trả lời"><Icon Name="x" Size="16" /></button>
                 </div>
             }
 
@@ -309,7 +309,7 @@
                        value="@newMessageContent"
                        @oninput="HandleChatInput"
                        @onkeydown="OnMessageKeyDown" />
-                <button class="btn-schedule" @onclick="OpenSchedulePopup" title="Đặt giờ gửi" style="background:none; border:none; cursor:pointer; font-size:1.2rem; margin-right:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">🕒</button>
+                <button class="btn-schedule" @onclick="OpenSchedulePopup" title="Đặt giờ gửi" style="background:none; border:none; cursor:pointer; font-size:1.2rem; margin-right:8px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'"><Icon Name="clock" Size="18" /></button>
                 <button class="chat-send-btn" 
                         @onclick="SendMessage" 
                         disabled="@(string.IsNullOrWhiteSpace(newMessageContent) && !isUploading)">
@@ -349,10 +349,10 @@
             </p>
             <div class="call-incoming-actions">
                 <button class="btn-reject-call" @onclick="RejectCall">
-                    <span style="transform: rotate(135deg); display: inline-block;">📞</span>
+                    <span style="transform: rotate(135deg); display: inline-block;"><Icon Name="phone" Size="18" /></span>
                 </button>
                 <button class="btn-accept-call" @onclick="AcceptCall">
-                    📞
+                    <Icon Name="phone" Size="18" />
                 </button>
             </div>
         </div>
@@ -388,16 +388,16 @@
 
         <div class="call-controls">
             <button class="btn-call-control @(isAudioMuted ? "muted" : "")" @onclick="ToggleAudio" title="Tắt/Bật Mic">
-                @(isAudioMuted ? "🔇" : "🎤")
+                <Icon Name="@(isAudioMuted ? "mic-off" : "mic")" Size="18" />
             </button>
             @if (activeCallType == ChatApp.Domain.Enums.CallType.Video)
             {
                 <button class="btn-call-control @(isVideoMuted ? "muted" : "")" @onclick="ToggleVideo" title="Tắt/Bật Camera">
-                    @(isVideoMuted ? "🚫" : "📷")
+                    <Icon Name="@(isVideoMuted ? "video-off" : "camera")" Size="18" />
                 </button>
             }
             <button class="btn-call-control btn-end-call" @onclick="EndCall" title="Kết thúc">
-                <span style="transform: rotate(135deg); display: inline-block;">📞</span>
+                <span style="transform: rotate(135deg); display: inline-block;"><Icon Name="phone" Size="18" /></span>
             </button>
         </div>
     </div>
@@ -408,7 +408,7 @@
 {
     <div class="modal-backdrop" @onclick="CloseDeleteModal">
         <div class="modal-box" @onclick:stopPropagation="true" style="max-width: 400px; text-align: center; padding: 24px;">
-            <div style="font-size: 3.5rem; margin-bottom: 12px;">🗑️</div>
+            <div style="font-size: 3.5rem; margin-bottom: 12px;"><Icon Name="trash" Size="18" /></div>
             <h3 style="margin-bottom: 12px; font-size: 1.25rem;">Xóa cuộc trò chuyện?</h3>
             <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">
                 Bạn có chắc chắn muốn xóa cuộc trò chuyện này không?<br/>
@@ -429,7 +429,7 @@
         <div class="modal-box" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>Chuyển tiếp tin nhắn</h3>
-                <button class="modal-close-btn" @onclick="CloseForwardModal">✕</button>
+                <button class="modal-close-btn" @onclick="CloseForwardModal"><Icon Name="x" Size="16" /></button>
             </div>
             <div class="modal-body" style="padding-top: 10px;">
                 <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">Chọn đoạn chat để chuyển tiếp:</p>
@@ -476,18 +476,18 @@
         <div class="modal-box" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>Cuộc trò chuyện mới</h3>
-                <button class="modal-close-btn" @onclick="CloseModal">✕</button>
+                <button class="modal-close-btn" @onclick="CloseModal"><Icon Name="x" Size="16" /></button>
             </div>
 
             <!-- Tab chọn loại -->
             <div class="modal-tabs">
                 <button class="modal-tab @(convType == ConversationType.Direct ? "active" : "")"
                         @onclick='() => convType = ConversationType.Direct'>
-                    👤 Tin nhắn trực tiếp
+                    <Icon Name="user" Size="18" /> Tin nhắn trực tiếp
                 </button>
                 <button class="modal-tab @(convType == ConversationType.Group ? "active" : "")"
                         @onclick='() => convType = ConversationType.Group'>
-                    👥 Tạo nhóm
+                    <Icon Name="users" Size="18" /> Tạo nhóm
                 </button>
             </div>
 
@@ -603,7 +603,7 @@
                                         }
                                     </div>
                                     <span>@m.DisplayName</span>
-                                    <button class="btn-remove-member" @onclick="() => groupMembers.Remove(m)">✕</button>
+                                    <button class="btn-remove-member" @onclick="() => groupMembers.Remove(m)"><Icon Name="x" Size="16" /></button>
                                 </div>
                             }
                         </div>
@@ -638,7 +638,7 @@
             <!-- Header -->
             <div style="background: var(--surface); padding: 28px 24px 20px; position: relative; border-bottom: 1px solid var(--border);">
                 <button class="modal-close-btn" @onclick="CloseProfileModal"
-                        style="position:absolute; top:12px; right:12px; background:var(--hover-bg); color:var(--text-muted); border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:1rem;">✕</button>
+                        style="position:absolute; top:12px; right:12px; background:var(--hover-bg); color:var(--text-muted); border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:1rem;"><Icon Name="x" Size="16" /></button>
 
                 <!-- Group Avatar -->
                 <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
@@ -654,7 +654,7 @@
                             }
                         </div>
                         <label title="Đổi ảnh nhóm" style="position:absolute; bottom:0; right:0; width:26px; height:26px; border-radius:50%; background:var(--surface); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.8rem; color:var(--text-primary);">
-                            📷
+                            <Icon Name="camera" Size="18" />
                             <InputFile OnChange="HandleGroupAvatarChange" style="display:none;" accept="image/*" />
                         </label>
                     </div>
@@ -666,7 +666,7 @@
                             <input @bind="editGroupName" style="background:var(--hover-bg); border:1px solid var(--border); border-radius:8px; padding:4px 10px; color:var(--text-primary); font-size:1rem; text-align:center; outline:none; width:200px;"
                                    placeholder="Tên nhóm..." />
                             <button @onclick="SaveGroupName" style="background:var(--accent); border:none; border-radius:6px; padding:5px 10px; color:#fff; cursor:pointer; font-size:0.85rem;">✓</button>
-                            <button @onclick='() => { isEditingGroupName = false; }' style="background:var(--hover-bg); border:1px solid var(--border); border-radius:6px; padding:5px 10px; color:var(--text-muted); cursor:pointer; font-size:0.85rem;">✕</button>
+                            <button @onclick='() => { isEditingGroupName = false; }' style="background:var(--hover-bg); border:1px solid var(--border); border-radius:6px; padding:5px 10px; color:var(--text-muted); cursor:pointer; font-size:0.85rem;"><Icon Name="x" Size="16" /></button>
                         </div>
                     }
                     else
@@ -674,7 +674,7 @@
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span style="color:var(--text-primary); font-size:1.15rem; font-weight:600;">@(selectedConversation?.Title ?? "Nhóm chat")</span>
                             <button @onclick='() => { editGroupName = selectedConversation?.Title ?? ""; isEditingGroupName = true; }'
-                                    title="Sửa tên nhóm" style="background:var(--hover-bg); border:1px solid var(--border); border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-primary); font-size:0.7rem;">✏️</button>
+                                    title="Sửa tên nhóm" style="background:var(--hover-bg); border:1px solid var(--border); border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-primary); font-size:0.7rem;"><Icon Name="edit" Size="14" /></button>
                         </div>
                     }
                     <span style="color:var(--text-muted); font-size:0.85rem;">@conversationParticipants.Count thành viên</span>
@@ -698,7 +698,7 @@
                         <div style="font-weight:600; font-size:0.9rem; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
                             <span>Chọn bạn bè để thêm</span>
                             <button @onclick='() => { showAddMemberPanel = false; selectedFriendIds.Clear(); }'
-                                    style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:0.9rem;">✕</button>
+                                    style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:0.9rem;"><Icon Name="x" Size="16" /></button>
                         </div>
                         @if (friendsNotInGroup == null)
                         {
@@ -774,7 +774,7 @@
                                 <button @onclick:stopPropagation="true"
                                         @onclick="() => RemoveMember(p.UserId)"
                                         title="Xóa thành viên"
-                                        style="background:none; border:none; cursor:pointer; color:#ff4d4f; font-size:1rem; padding:4px; border-radius:6px; flex-shrink:0; transition: background 0.15s;">🗑️</button>
+                                        style="background:none; border:none; cursor:pointer; color:#ff4d4f; font-size:1rem; padding:4px; border-radius:6px; flex-shrink:0; transition: background 0.15s;"><Icon Name="trash" Size="18" /></button>
                             }
                         </div>
                     }
@@ -802,7 +802,7 @@
 {
     <div class="modal-backdrop" style="z-index:1100;">
         <div class="modal-box" style="max-width:360px; text-align:center; padding:28px 24px;" @onclick:stopPropagation="true">
-            <div style="font-size:2.5rem; margin-bottom:12px;">⚠️</div>
+            <div style="font-size:2.5rem; margin-bottom:12px;"><Icon Name="alert" Size="24" /></div>
             <h3 style="margin-bottom:8px; color:var(--text-primary);">Xác nhận giải tán nhóm?</h3>
             <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">Hành động này không thể hoàn tác. Tất cả thành viên sẽ bị xóa khỏi nhóm.</p>
             <div style="display:flex; gap:10px; justify-content:center;">
@@ -825,7 +825,7 @@
         <div class="modal-box" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>Hẹn giờ gửi tin nhắn</h3>
-                <button class="modal-close-btn" @onclick="CloseScheduleModal">✕</button>
+                <button class="modal-close-btn" @onclick="CloseScheduleModal"><Icon Name="x" Size="16" /></button>
             </div>
             <div class="modal-body">
                 <div class="modal-form-group">

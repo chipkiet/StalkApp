@@ -8,7 +8,7 @@
         <div class="toast-item @(toast.IsRemoving ? "removing" : "")" 
              @onclick="() => HandleToastClick(toast.Item.ConversationId)">
             <div class="toast-icon">
-                💬
+                <Icon Name="message" Size="16" />
             </div>
             <div class="toast-body">
                 <div class="toast-title">@toast.Item.ConversationTitle</div>
@@ -16,7 +16,7 @@
                 <div class="toast-time">@toast.Item.Timestamp.ToString("t")</div>
             </div>
             <button class="toast-close" @onclick="() => RemoveToast(toast.Item.Id)" @onclick:stopPropagation>
-                ✕
+                <Icon Name="x" Size="16" />
             </button>
             <div class="toast-progress"></div>
         </div>

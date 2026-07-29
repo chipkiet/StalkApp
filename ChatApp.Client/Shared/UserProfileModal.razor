@@ -17,7 +17,7 @@
             else if (userProfile != null)
             {
                 <!-- Nút Đóng -->
-                <button class="btn-close" @onclick="CloseModal">✕</button>
+                <button class="btn-close" @onclick="CloseModal"><Icon Name="x" Size="16" /></button>
 
                 <div class="profile-header">
                     <div class="avatar-wrapper">
@@ -83,7 +83,7 @@
                     {
                         if (userProfile.FriendshipStatus == FriendshipStatus.Accepted)
                         {
-                            <button class="btn profile-btn-primary" @onclick="MessageUser">💬 Nhắn tin</button>
+                            <button class="btn profile-btn-primary" @onclick="MessageUser"><Icon Name="message" Size="16" /> Nhắn tin</button>
                             <button class="btn profile-btn-danger" @onclick="RemoveFriend" disabled="@isActioning">Xóa bạn</button>
                         }
                         else if (userProfile.FriendshipStatus == FriendshipStatus.Pending)
